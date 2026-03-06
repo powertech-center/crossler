@@ -1,13 +1,12 @@
 {
   "name": "Crossler Dev",
-  "build": {
-    "dockerfile": "Dockerfile"
-  },
+  "image": "ghcr.io/powertech-center/crossler-dev:latest",
   "remoteUser": "dev",
   "customizations": {
     "vscode": {
       "extensions": [
-        "anthropic.claude-code"
+        "anthropic.claude-code",
+        "golang.go"
       ],
       "settings": {
         "claude.storagePath": "/home/dev/.claude"

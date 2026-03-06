@@ -6,19 +6,18 @@ A cross-platform packaging tool — build installers for Windows, Linux, and mac
 
 Crossler reads a single config file and delegates package creation to the right backend for each target format. You run one tool, get packages for all platforms.
 
-Crossler ships as **6 binaries** (Linux, macOS, Windows × x64, arm64). Each binary covers a different set of formats:
+Crossler ships as **6 binaries** (Linux, macOS, Windows × x64/arm64). Each binary covers a different set of formats:
 
 | Format / capability | Linux | macOS | Windows |
 |---------------------|:-----:|:-----:|:-------:|
-| `.msi` | ✓ | — | ✓ |
-| `.deb`, `.rpm`, `.apk` | ✓ | — | — |
-| `.tar.gz` (any target) | ✓ | ✓ | ✓ |
-| `.rb` (Homebrew formula) | ✓ | ✓ | — |
-| `.pkg` (macOS installer) | — | ✓ | — |
-| `.dmg` (macOS disk image) | — | ✓ | — |
-| Windows code signing (Authenticode) | ✓ `osslsigncode` | — | ✓ `signtool` |
-| `.msi` signing (Authenticode) | ✓ `osslsigncode` | — | ✓ `signtool` |
-| macOS code signing (`codesign`) | — | ✓ | — |
+| `.msi` | ✓ `wixl` | — | ✓ `wix` |
+| `.deb`, `.rpm`, `.apk` | ✓ `nfpm` | — | — |
+| `.tar.gz` | ✓ | ✓ | ✓ |
+| `.rb` (Homebrew) | ✓ | ✓ | ✓ |
+| `.pkg` (macOS installer) | — | ✓ `pkgbuild` | — |
+| `.dmg` (macOS disk image) | — | ✓ `hdiutil` | — |
+| Windows signing | ✓ `osslsigncode` | — | ✓ `signtool` |
+| macOS signing | — | ✓ `codesign` `notarytool` | — |
 
 The **Linux binary** is the primary one — it can build and sign packages for all platforms except macOS signing. The **macOS binary** handles everything that requires native macOS tooling, including signing binaries before packaging into `tar.gz`, `.pkg`, or `.dmg`. The **Windows binary** covers MSI creation and signing via `signtool`.
 
@@ -29,18 +28,6 @@ Each project defines its packaging in a single config file (format TBD). The con
 ## Installation
 
 A bootstrap script is available from the `master` branch to install Crossler with all dependencies in one step — useful for CI/CD Docker images.
-
-## Backends
-
-| Format / action | Tool |
-|-----------------|------|
-| `.msi` | `wixl` (msitools) |
-| `.deb`, `.rpm`, `.apk` | nFPM |
-| `.tar.gz` | `tar` + `gzip` |
-| `.pkg`, `.dmg` | `pkgbuild` / `productbuild` / `hdiutil` |
-| Authenticode signing on Linux | `osslsigncode` + PFX/P12 |
-| Authenticode signing on Windows | `signtool.exe` + PFX/P12 |
-| macOS signing | `codesign` + `notarytool` |
 
 ## Scope
 

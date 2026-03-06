@@ -4,37 +4,38 @@
 
 Crossler — инструмент для кроссплатформенной упаковки. Читает единый конфиг и делегирует сборку пакетов внешним бэкендам. Название "cross" отражает кроссплатформенность упаковки, а не мультиплатформенность самой утилиты.
 
-### Бинарники
+### Зависимости
 
-Crossler собирается для **3 ОС × 2 архитектуры = 6 таргетов**: Linux, macOS, Windows × x64, arm64.
+Crossler собирается для **3 ОС × 2 архитектуры = 6 таргетов**: Linux, macOS, Windows × x64, arm64. Каждый бинарник поддерживает разный набор форматов и требует соответствующих внешних инструментов:
 
 | Формат / возможность | Linux | macOS | Windows |
 |----------------------|:-----:|:-----:|:-------:|
-| `.msi` | ✓ | — | ✓ |
-| `.deb`, `.rpm`, `.apk` | ✓ | — | — |
+| `.msi` | ✓ `wixl` | — | ✓ `wix` |
+| `.deb`, `.rpm`, `.apk` | ✓ `nfpm` | — | — |
 | `.tar.gz` (любой таргет) | ✓ | ✓ | ✓ |
 | `.rb` (Homebrew formula) | ✓ | ✓ | — |
-| `.pkg` (macOS installer) | — | ✓ | — |
-| `.dmg` (macOS disk image) | — | ✓ | — |
+| `.pkg` (macOS installer) | — | ✓ `pkgbuild` | — |
+| `.dmg` (macOS disk image) | — | ✓ `hdiutil` | — |
 | Подпись Windows-бинарников (Authenticode) | ✓ `osslsigncode` | — | ✓ `signtool` |
 | Подпись `.msi` (Authenticode) | ✓ `osslsigncode` | — | ✓ `signtool` |
-| Подпись macOS-бинарников (`codesign`) | — | ✓ | — |
+| Подпись macOS-бинарников | — | ✓ `codesign` | — |
+| Нотаризация macOS-пакетов | — | ✓ `notarytool` | — |
 
 **Linux-бинарник — основной**: умеет собирать для всех платформ кроме macOS-подписи.
 **macOS-бинарник — вторичный**: всё, что требует нативного macOS окружения, включая подпись перед упаковкой в `tar.gz`, `.pkg`, `.dmg`.
 **Windows-бинарник — минимальный**: сборка и подпись `.msi` и бинарников через штатный `signtool`.
 
-### Бэкенды
+Установка внешних зависимостей:
 
-| Формат / действие | Инструмент |
-|-------------------|------------|
-| `.msi` | `wixl` (msitools) |
-| `.deb`, `.rpm`, `.apk` | nFPM |
-| `.tar.gz` | `tar` + `gzip` |
-| `.pkg`, `.dmg` | `pkgbuild` / `productbuild` / `hdiutil` |
-| Authenticode-подпись на Linux | `osslsigncode` + PFX/P12 |
-| Authenticode-подпись на Windows | `signtool.exe` + PFX/P12 |
-| macOS-подпись | `codesign` + `notarytool` |
+| Инструмент | Платформа | Пакет / источник |
+|------------|-----------|------------------|
+| `wixl` | Linux | `msitools` — пакетный менеджер дистрибутива (`apk add msitools`, `apt install msitools`) |
+| `nfpm` | Linux | скачать бинарник с [github.com/goreleaser/nfpm](https://github.com/goreleaser/nfpm/releases) или `go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest` |
+| `osslsigncode` | Linux | пакетный менеджер дистрибутива (`apk add osslsigncode`, `apt install osslsigncode`) |
+| `wix` | Windows | .NET tool: `dotnet tool install --global wix` |
+| `signtool` | Windows | входит в Windows SDK (устанавливается вместе с Visual Studio или отдельно) |
+| `pkgbuild`, `hdiutil` | macOS | входят в macOS, дополнительная установка не требуется |
+| `codesign`, `notarytool` | macOS | входят в Xcode Command Line Tools: `xcode-select --install` |
 
 ### Конфиг-файл
 
