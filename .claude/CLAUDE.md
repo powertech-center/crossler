@@ -58,7 +58,19 @@ Crossler собирается для **3 ОС × 2 архитектуры = 6 т
 
 - Репозиторий: git, основная ветка `master`, разработка в `develop`
 - Dev-контейнер: Alpine Linux (`ghcr.io/powertech-center/alpine-dev:latest`)
-- Язык реализации: **ещё не определён**
+- Язык реализации: **Go** — выбран как простой популярный компилируемый язык, даёт один бинарник без зависимостей, встроенная кросс-компиляция, удобная работа с YAML/TOML и другими форматами через вендорируемые библиотеки
+- Go-модуль: `github.com/powertech-center/crossler`
+- Точка входа: `cmd/crossler/main.go`
+- Артефакты сборки: `dist/` (в `.gitignore`)
+
+## Инфраструктура сборки
+
+- **Makefile** — кросс-компиляция для 6 таргетов (Linux/macOS/Windows × x64/arm64); `CGO_ENABLED=0`, чистый Go, никаких внешних компиляторов не требуется
+- **GitHub Actions** (`.github/workflows/build.yml`):
+  - Контейнер: `ghcr.io/powertech-center/alpine-cross-go:latest`
+  - Тесты — на каждый push/PR
+  - Сборка всех 6 бинарников + создание Release — только при теге `v*`
+- **VSCode**: `.vscode/settings.json` + `.vscode/tasks.json` (задачи build / run / test)
 
 ## Рабочий процесс
 

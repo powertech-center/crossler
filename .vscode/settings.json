@@ -5,5 +5,26 @@
   },
   "search.exclude": {
     "*claude-plugins-official/": true
+  },
+  "go.useLanguageServer": true,
+  "go.lintTool": "golangci-lint",
+  "go.lintOnSave": "package",
+  "go.formatTool": "goimports",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit"
+  },
+  "go.testFlags": ["-v"],
+  "go.coverOnSave": false,
+  "files.eol": "\n",
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "[go]": {
+    "editor.tabSize": 4,
+    "editor.insertSpaces": false,
+    "editor.defaultFormatter": "golang.go"
+  },
+  "[markdown]": {
+    "files.trimTrailingWhitespace": false
   }
 }
