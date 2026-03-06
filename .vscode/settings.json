@@ -1,0 +1,9 @@
+{
+  "search.useIgnoreFiles": false,
+  "files.exclude": {
+    "*claude-plugins-official/": true
+  },
+  "search.exclude": {
+    "*claude-plugins-official/": true
+  }
+}
