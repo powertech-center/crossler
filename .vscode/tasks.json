@@ -1,0 +1,37 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "go build -o bin/crossler ./cmd/crossler",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [
+                "$go"
+            ]
+        },
+        {
+            "label": "run",
+            "type": "shell",
+            "command": "go run ./cmd/crossler",
+            "problemMatcher": [
+                "$go"
+            ]
+        },
+        {
+            "label": "test",
+            "type": "shell",
+            "command": "go test -v ./...",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "problemMatcher": [
+                "$go"
+            ]
+        }
+    ]
+}
