@@ -29,7 +29,19 @@ Each project defines its packaging in a single config file (format TBD). The con
 
 ## Installation
 
-A bootstrap script is available from the `master` branch to install Crossler with all dependencies in one step — useful for CI/CD Docker images.
+A bootstrap script installs Crossler and all its dependencies in one step.
+
+**Linux / macOS:**
+```sh
+curl -fsSL https://raw.githubusercontent.com/powertech-center/crossler/master/scripts/install.sh | sh
+```
+
+**Windows** (PowerShell):
+```powershell
+irm https://raw.githubusercontent.com/powertech-center/crossler/master/scripts/install.ps1 | iex
+```
+
+Running the script again always upgrades Crossler to the latest release. External tools are reinstalled only if missing.
 
 ## Scope
 

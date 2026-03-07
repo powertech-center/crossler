@@ -49,7 +49,13 @@ Crossler собирается для **3 ОС × 2 архитектуры = 6 т
 
 ### Инсталляция
 
-В репозитории должен быть bootstrap-скрипт (тянется из ветки `master`), который устанавливает Crossler со всеми зависимостями одной командой — в первую очередь для CI/CD Docker-образов.
+В репозитории есть скрипты `scripts/install.sh` (Linux/macOS) и `scripts/install.ps1` (Windows). Это **публичные bootstrap-скрипты для конечных пользователей Crossler** — не внутренние инструменты разработки.
+
+Их цель: одной командой установить Crossler со всеми внешними зависимостями в любом окружении (CI/CD Docker, GitHub Actions runner, машина разработчика).
+
+**Текущее состояние** (ветка `feature/dependencies`): скрипты устанавливают только внешние инструменты (wixl, nfpm, osslsigncode, rcodesign, xar, bomutils, signtool, wix).
+
+**Следующий шаг** после отладки установки зависимостей: добавить в скрипты скачивание и установку самого бинарника `crossler` из GitHub Releases (`github.com/powertech-center/crossler`).
 
 ### Целевая аудитория
 
@@ -96,20 +102,34 @@ Crossler собирается для **3 ОС × 2 архитектуры = 6 т
 ## Структура проекта
 
 - Репозиторий: git, основная ветка `master`, разработка в `develop`
-- Dev-контейнер: Alpine Linux (`ghcr.io/powertech-center/alpine-dev:latest`)
 - Язык реализации: **Go** — выбран как простой популярный компилируемый язык, даёт один бинарник без зависимостей, встроенная кросс-компиляция, удобная работа с YAML/TOML и другими форматами через вендорируемые библиотеки
 - Go-модуль: `github.com/powertech-center/crossler`
 - Точка входа: `cmd/crossler/main.go`
 - Артефакты сборки: `dist/` (в `.gitignore`)
 
-## Инфраструктура сборки
+## Dev-окружение
+
+Локальная разработка ведётся внутри Dev Container на базе Alpine Linux:
+
+- **Образ**: `ghcr.io/powertech-center/alpine-dev:latest` — содержит Go, все необходимые инструменты разработки
+- **VSCode**: `.vscode/settings.json` + `.vscode/tasks.json` (задачи build / run / test)
+
+## CI: сборка и релиз
+
+Автоматическая сборка через GitHub Actions с использованием образа `ghcr.io/powertech-center/alpine-cross-go:latest` (Go + кросс-компилятор для всех таргетов):
 
 - **Makefile** — кросс-компиляция для 6 таргетов (Linux/macOS/Windows × x64/arm64); `CGO_ENABLED=0`, чистый Go, никаких внешних компиляторов не требуется
-- **GitHub Actions** (`.github/workflows/build.yml`):
-  - Контейнер: `ghcr.io/powertech-center/alpine-cross-go:latest`
-  - Тесты — на каждый push/PR
-  - Сборка всех 6 бинарников + создание Release — только при теге `v*`
-- **VSCode**: `.vscode/settings.json` + `.vscode/tasks.json` (задачи build / run / test)
+- **Тесты** — запускаются на каждый push/PR
+- **Релиз** — сборка всех 6 бинарников + создание GitHub Release только при теге `v*`
+
+## CI: тестирование install-скриптов
+
+Отдельный workflow тестирует `scripts/install.sh` и `scripts/install.ps1` на реальных раннерах и контейнерах — без образа alpine-cross-go, с чистыми дистрибутивными образами:
+
+- **Раннеры**: ubuntu-latest (x64), ubuntu-24.04-arm (arm64 нативный), macos-latest (Apple Silicon), windows-latest, windows-11-arm
+- **Контейнеры**: alpine:latest, debian:stable-slim, fedora:latest, archlinux:latest
+- **Порядок шагов в каждой задаче**: установка базовых инструментов → `install.sh`/`install.ps1` → проверка инструментов → проверка идемпотентности
+- **Подробная матрица** с конфигурацией каждой задачи и известными особенностями: `docs/install-testing.md`
 
 ## Рабочий процесс
 
