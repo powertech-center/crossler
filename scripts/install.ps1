@@ -156,15 +156,10 @@ function Install-Crossler {
         $InstalledTools.Add("crossler (dry-run)")
         return
     }
-    try {
-        Download-File $url $dest
-        Add-ToPath $InstallDir
-        Write-Ok "crossler installed"
-        $InstalledTools.Add("crossler")
-    } catch {
-        Write-Warn "crossler installation failed: $_"
-        $InstalledTools.Add("crossler (FAILED)")
-    }
+    Download-File $url $dest
+    Add-ToPath $InstallDir
+    Write-Ok "crossler installed"
+    $InstalledTools.Add("crossler")
 }
 
 function Install-Nfpm {
@@ -197,8 +192,7 @@ function Install-Nfpm {
         Write-Ok "nfpm installed: $ver"
         $InstalledTools.Add("nfpm")
     } catch {
-        Write-Warn "nfpm installation failed: $_"
-        $InstalledTools.Add("nfpm (FAILED)")
+        throw "nfpm installation failed: $_"
     } finally {
         Remove-Item $tmpZip -ErrorAction SilentlyContinue
         Remove-Item $tmpDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -236,8 +230,7 @@ function Install-Rcodesign {
         Write-Ok "rcodesign installed: $ver"
         $InstalledTools.Add("rcodesign")
     } catch {
-        Write-Warn "rcodesign installation failed: $_"
-        $InstalledTools.Add("rcodesign (FAILED)")
+        throw "rcodesign installation failed: $_"
     } finally {
         Remove-Item $tmpZip -ErrorAction SilentlyContinue
         Remove-Item $tmpDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -259,10 +252,7 @@ function Install-Signtool {
     }
     Write-Info "Installing Windows SDK (signtool) via winget..."
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-        Write-Warn "winget not available. Install Windows SDK manually:"
-        Write-Warn "  https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/"
-        $InstalledTools.Add("signtool (MANUAL REQUIRED)")
-        return
+        throw "winget not available — install Windows SDK manually from https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/"
     }
     if ($DryRun) {
         Write-Info "DRY RUN: would run: winget install --id Microsoft.WindowsSDK.10.0.26100 --silent"
@@ -277,8 +267,7 @@ function Install-Signtool {
         Write-Ok "signtool installed: $($found.FullName)"
         $InstalledTools.Add("signtool")
     } else {
-        Write-Warn "signtool not found after SDK install. A reboot may be required."
-        $InstalledTools.Add("signtool (reboot may be needed)")
+        throw "signtool not found after SDK install — a reboot may be required, then re-run the script"
     }
 }
 
@@ -291,10 +280,7 @@ function Install-Wix {
     }
     Write-Info "Installing WiX Toolset v4 (.NET global tool)..."
     if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
-        Write-Warn ".NET SDK not found. Install it from: https://dotnet.microsoft.com/download"
-        Write-Warn "Then run: dotnet tool install --global wix"
-        $InstalledTools.Add("wix (MANUAL REQUIRED — dotnet missing)")
-        return
+        throw ".NET SDK not found — install it from https://dotnet.microsoft.com/download, then re-run the script"
     }
     if ($DryRun) {
         Write-Info "DRY RUN: would run: dotnet tool install --global wix"
@@ -317,8 +303,7 @@ function Install-Wix {
         Write-Ok "wix installed: $ver"
         $InstalledTools.Add("wix")
     } else {
-        Write-Warn "wix installed but not on PATH yet. Restart shell or add $dotnetTools to PATH."
-        $InstalledTools.Add("wix (PATH refresh needed)")
+        throw "wix not found after install — add $dotnetTools to PATH and re-run the script"
     }
 }
 

@@ -179,9 +179,7 @@ install_crossler() {
     esac
     local url="https://github.com/powertech-center/crossler/releases/latest/download/crossler-${os_name}-${ARCH_CROSSLER}"
     if ! download_file "$url" "${TMPDIR_WORK}/crossler"; then
-        warn "crossler download failed"
-        mark_installed "crossler (FAILED — download error)"
-        return
+        fail "crossler download failed — cannot continue without the main binary"
     fi
     install -m 755 "${TMPDIR_WORK}/crossler" /usr/local/bin/crossler
     ok "crossler installed"
@@ -213,8 +211,7 @@ install_xcode_clt() {
         ok "Xcode CLT installed"
         mark_installed "Xcode CLT (pkgbuild, hdiutil, codesign, notarytool, xar, mkbom)"
     else
-        warn "Could not find Xcode CLT via softwareupdate. Run manually: xcode-select --install"
-        mark_installed "Xcode CLT (MANUAL REQUIRED)"
+        fail "Could not find Xcode CLT via softwareupdate — run manually: xcode-select --install"
     fi
     rm -f /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
 }
@@ -371,12 +368,10 @@ install_wixl_linux() {
             ok "wixl installed: $("$wixl_bin" --version 2>&1 | head -1)"
             mark_installed "wixl"
         else
-            warn "wixl binary not found after $wixl_pkg install"
-            mark_installed "wixl (FAILED — binary not found)"
+            fail "wixl binary not found after $wixl_pkg install"
         fi
     else
-        warn "msitools not available in package manager — wixl will not be installed"
-        mark_installed "wixl (FAILED — not in repos)"
+        fail "msitools not available in package manager — wixl cannot be installed"
     fi
 }
 
@@ -403,17 +398,14 @@ install_nfpm_linux() {
     local extract_dir="${TMPDIR_WORK}/nfpm_extract"
     info "Downloading nfpm v${version} (Linux/${ARCH_NFPM})..."
     if ! download_file "$url" "${TMPDIR_WORK}/${archive}"; then
-        mark_installed "nfpm (FAILED — download error)"
-        return
+        fail "nfpm download failed"
     fi
     mkdir -p "$extract_dir"
     tar -xzf "${TMPDIR_WORK}/${archive}" -C "$extract_dir"
     local nfpm_bin
     nfpm_bin=$(find "$extract_dir" -type f -name "nfpm" | head -1)
     if [ -z "$nfpm_bin" ]; then
-        warn "nfpm binary not found in archive"
-        mark_installed "nfpm (FAILED)"
-        return
+        fail "nfpm binary not found in archive"
     fi
     install -m 755 "$nfpm_bin" /usr/local/bin/nfpm
     ok "nfpm installed: $(nfpm --version 2>&1 | head -1)"
@@ -442,6 +434,8 @@ install_osslsigncode_linux() {
 }
 
 build_osslsigncode_from_source() {
+    info "Installing build dependencies for osslsigncode..."
+    pkg_install openssl-dev zlib-dev
     info "Cloning osslsigncode..."
     git clone --depth=1 https://github.com/mtrojnar/osslsigncode.git "${TMPDIR_WORK}/osslsigncode"
     info "Building osslsigncode (cmake)..."
@@ -452,8 +446,7 @@ build_osslsigncode_from_source() {
         ok "osslsigncode built and installed from source"
         mark_installed "osslsigncode (from source)"
     else
-        warn "osslsigncode build failed — it will not be available"
-        mark_installed "osslsigncode (BUILD FAILED)"
+        fail "osslsigncode build failed"
     fi
 }
 
@@ -481,22 +474,15 @@ install_rcodesign_linux() {
     local extracted_dir="apple-codesign-${version}-${rust_arch}"
     info "Downloading rcodesign v${version} (${rust_arch})..."
     if ! download_file "$url" "${TMPDIR_WORK}/${archive}"; then
-        mark_installed "rcodesign (FAILED — download error)"
-        return
+        fail "rcodesign download failed"
     fi
     tar -xzf "${TMPDIR_WORK}/${archive}" -C "$TMPDIR_WORK"
-    if [ ! -f "${TMPDIR_WORK}/${extracted_dir}/rcodesign" ]; then
-        warn "rcodesign binary not found in archive at expected path: ${extracted_dir}/rcodesign"
-        local rcodesign_bin
-        rcodesign_bin=$(find "$TMPDIR_WORK" -type f -name "rcodesign" | head -1)
-        if [ -z "$rcodesign_bin" ]; then
-            mark_installed "rcodesign (FAILED — binary not found)"
-            return
-        fi
-        install -m 755 "$rcodesign_bin" /usr/local/bin/rcodesign
-    else
-        install -m 755 "${TMPDIR_WORK}/${extracted_dir}/rcodesign" /usr/local/bin/rcodesign
+    local rcodesign_bin
+    rcodesign_bin=$(find "$TMPDIR_WORK" -type f -name "rcodesign" | head -1)
+    if [ -z "$rcodesign_bin" ]; then
+        fail "rcodesign binary not found in archive"
     fi
+    install -m 755 "$rcodesign_bin" /usr/local/bin/rcodesign
     ok "rcodesign installed: $(rcodesign --version 2>&1 | head -1)"
     mark_installed "rcodesign"
 }
@@ -523,17 +509,16 @@ install_xar_linux() {
 }
 
 build_xar_from_source() {
-    # Check required build tools — caller must provide them
+    # Check required compiler/build tools — these must be pre-installed (not managed here)
     local missing=""
     for tool in gcc make autoconf; do
         command -v "$tool" >/dev/null 2>&1 || missing="$missing $tool"
     done
     if [ -n "$missing" ]; then
-        warn "Cannot build xar from source: missing tools:$missing"
-        warn "Please install them before running this script."
-        mark_installed "xar (BUILD FAILED — missing:$missing)"
-        return
+        fail "Cannot build xar from source: missing tools:$missing — install them before running this script"
     fi
+    info "Installing build dependencies for xar..."
+    pkg_install openssl-dev libxml2-dev zlib-dev bzip2-dev
     info "Cloning xar (mackyle fork)..."
     git clone --depth=1 https://github.com/mackyle/xar.git "${TMPDIR_WORK}/xar"
     info "Building xar..."
@@ -579,8 +564,7 @@ build_xar_from_source() {
         ok "xar built and installed from source"
         mark_installed "xar (from source)"
     else
-        warn "xar build failed — it will not be available"
-        mark_installed "xar (BUILD FAILED)"
+        fail "xar build failed"
     fi
 }
 
@@ -612,10 +596,7 @@ build_bomutils_from_source() {
         command -v "$tool" >/dev/null 2>&1 || missing="$missing $tool"
     done
     if [ -n "$missing" ]; then
-        warn "Cannot build bomutils from source: missing tools:$missing"
-        warn "Please install them before running this script."
-        mark_installed "bomutils (BUILD FAILED — missing:$missing)"
-        return
+        fail "Cannot build bomutils from source: missing tools:$missing — install them before running this script"
     fi
     info "Cloning bomutils..."
     git clone --depth=1 https://github.com/hogliux/bomutils.git "${TMPDIR_WORK}/bomutils"
@@ -637,8 +618,7 @@ build_bomutils_from_source() {
         ok "bomutils (mkbom) built and installed from source"
         mark_installed "bomutils (from source)"
     else
-        warn "bomutils build failed — mkbom will not be available"
-        mark_installed "bomutils (BUILD FAILED)"
+        fail "bomutils build failed — mkbom binary not found"
     fi
 }
 
