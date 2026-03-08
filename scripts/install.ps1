@@ -84,7 +84,7 @@ function Get-RcodesignLatestVersion {
     }
 }
 
-function Download-File {
+function Invoke-FileDownload {
     param([string]$Url, [string]$Destination)
     if ($DryRun) {
         Write-Info "DRY RUN: would download $([System.IO.Path]::GetFileName($Destination)) from $Url"
@@ -156,7 +156,7 @@ function Install-Crossler {
         $InstalledTools.Add("crossler (dry-run)")
         return
     }
-    Download-File $url $dest
+    Invoke-FileDownload $url $dest
     Add-ToPath $InstallDir
     Write-Ok "crossler installed"
     $InstalledTools.Add("crossler")
@@ -181,7 +181,7 @@ function Install-Nfpm {
     $tmpZip  = Join-Path $env:TEMP $archive
     $tmpDir  = Join-Path $env:TEMP "nfpm_extract"
     try {
-        Download-File $url $tmpZip
+        Invoke-FileDownload $url $tmpZip
         Expand-Archive -Path $tmpZip -DestinationPath $tmpDir -Force
         $exe = Get-ChildItem -Path $tmpDir -Filter "nfpm.exe" -Recurse | Select-Object -First 1
         if (-not $exe) { throw "nfpm.exe not found in archive" }
@@ -219,7 +219,7 @@ function Install-Rcodesign {
     $tmpZip    = Join-Path $env:TEMP $archive
     $tmpDir    = Join-Path $env:TEMP "rcodesign_extract"
     try {
-        Download-File $url $tmpZip
+        Invoke-FileDownload $url $tmpZip
         Expand-Archive -Path $tmpZip -DestinationPath $tmpDir -Force
         $exe = Get-ChildItem -Path $tmpDir -Filter "rcodesign.exe" -Recurse | Select-Object -First 1
         if (-not $exe) { throw "rcodesign.exe not found in archive" }
@@ -282,15 +282,34 @@ function Install-Wix {
     if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
         throw ".NET SDK not found — install it from https://dotnet.microsoft.com/download, then re-run the script"
     }
+    # WiX 4+ requires .NET 6 or later; check the highest installed SDK version
+    # (dotnet --version can return an older version if global.json pins it)
+    $sdkLines = & dotnet --list-sdks 2>&1
+    $maxMajor = 0
+    foreach ($line in $sdkLines) {
+        if ($line -match '^(\d+)\.') { $maxMajor = [Math]::Max($maxMajor, [int]$Matches[1]) }
+    }
+    if ($maxMajor -lt 6) {
+        $dotnetVer = & dotnet --version 2>&1
+        throw ".NET $dotnetVer is too old — WiX 4+ requires .NET 6 or later. Install a current .NET SDK from https://dotnet.microsoft.com/download, then re-run the script"
+    }
     if ($DryRun) {
         Write-Info "DRY RUN: would run: dotnet tool install --global wix"
         $InstalledTools.Add("wix (dry-run)")
         return
     }
-    dotnet tool install --global wix
-    if ($LASTEXITCODE -ne 0) {
-        # May already be installed but not on PATH — try update
-        dotnet tool update --global wix
+    # Run from TEMP to avoid any global.json in the current directory pinning an old SDK.
+    # DOTNET_NOLOGO suppresses the first-run welcome message printed by new SDK versions.
+    Push-Location $env:TEMP
+    $env:DOTNET_NOLOGO = "1"
+    try {
+        dotnet tool install --global wix
+        if ($LASTEXITCODE -ne 0) {
+            # May already be installed but not on PATH — try update
+            dotnet tool update --global wix
+        }
+    } finally {
+        Pop-Location
     }
     # Ensure dotnet tools directory is on PATH
     $dotnetTools = Join-Path $env:USERPROFILE ".dotnet\tools"
