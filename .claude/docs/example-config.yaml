@@ -1,25 +1,25 @@
 # =============================================================================
-# Crossler — example configuration (YAML format)
-# Hypothetical complex project: "myapp" — a CLI tool with daemon and GUI helper
+# Crossler — пример конфигурации (формат YAML)
+# Гипотетический сложный проект: "myapp" — CLI-утилита с демоном и GUI-хелпером
 # =============================================================================
 #
-# This file demonstrates the full feature set of a Crossler config.
-# In practice, most projects will use a small subset of these options.
+# Файл демонстрирует полный набор возможностей конфига Crossler.
+# На практике большинство проектов использует небольшое подмножество этих настроек.
 #
-# Variable substitution is available in most string fields (expand: true):
-#   ${VERSION}       — version string from --version flag or env
-#   ${GOOS}          — target OS (linux, darwin, windows)
-#   ${GOARCH}        — target arch (amd64, arm64)
-#   ${EXE}           — ".exe" on Windows, "" otherwise
-#   ${BUILD_NUMBER}  — CI build number (if available)
+# Подстановка переменных доступна в большинстве строковых полей (expand: true):
+#   ${VERSION}       — строка версии из флага --version или переменной окружения
+#   ${GOOS}          — целевая ОС (linux, darwin, windows)
+#   ${GOARCH}        — целевая архитектура (amd64, arm64)
+#   ${EXE}           — ".exe" на Windows, "" в остальных случаях
+#   ${BUILD_NUMBER}  — номер сборки CI (если доступен)
 
 
 # -----------------------------------------------------------------------------
-# METADATA — common to all platforms and formats
+# МЕТАДАННЫЕ — общие для всех платформ и форматов
 # -----------------------------------------------------------------------------
 
 name: myapp
-version: "2.4.1"                # semver; Windows MSI requires 2.4.1.0 (auto-padded)
+version: "2.4.1"                # semver; для Windows MSI автоматически дополняется до 2.4.1.0
 description: |
   My Application is a cross-platform tool for doing important things.
   Supports Linux, macOS and Windows natively.
@@ -28,8 +28,8 @@ vendor: PowerTech LLC
 homepage: "https://github.com/powertech-center/myapp"
 license: Apache-2.0
 
-# Formats to build. Each enabled format goes through its backend.
-# Crossler auto-selects the right backend per platform.
+# Форматы для сборки. Каждый формат обрабатывается своим бэкендом.
+# Crossler автоматически выбирает нужный бэкенд в зависимости от платформы.
 formats:
   - deb
   - rpm
@@ -37,28 +37,28 @@ formats:
   - msi
   - pkg       # macOS installer
   - dmg       # macOS disk image
-  - tar.gz    # universal archive (all platforms)
-  - homebrew  # generates .rb formula
+  - tar.gz    # универсальный архив (все платформы)
+  - homebrew  # генерирует .rb-формулу
 
 
 # -----------------------------------------------------------------------------
-# FILES — installed on all platforms unless overridden
+# ФАЙЛЫ — устанавливаются на всех платформах, если не переопределено
 # -----------------------------------------------------------------------------
 #
-# Fields:
-#   src      — source path on build machine; supports globs and ${VARS}
-#   dst      — absolute install path (Unix-style for Linux/macOS)
-#   win_dst  — install path on Windows, relative to INSTALLFOLDER
-#              (omit if the file is not installed on Windows)
-#   type     — file (default) | config | config|noreplace | symlink |
+# Поля:
+#   src      — путь к файлу на машине сборки; поддерживает glob-шаблоны и ${VARS}
+#   dst      — абсолютный путь установки (Unix-стиль для Linux/macOS)
+#   win_dst  — путь установки на Windows, относительно INSTALLFOLDER
+#              (не указывать, если файл не устанавливается на Windows)
+#   type     — file (по умолчанию) | config | config|noreplace | symlink |
 #              dir | doc | license | ghost | tree
-#   file_info.mode  — POSIX permissions (ignored on Windows)
-#   file_info.owner — file owner (ignored on Windows)
-#   file_info.group — file group (ignored on Windows)
-#   expand   — if true, expand ${VARS} in src and dst at build time
+#   file_info.mode  — права доступа POSIX (игнорируются на Windows)
+#   file_info.owner — владелец файла (игнорируется на Windows)
+#   file_info.group — группа файла (игнорируется на Windows)
+#   expand   — если true, раскрывает ${VARS} в полях src и dst во время сборки
 
 files:
-  # Main executable — arch-specific build artifact
+  # Основной исполняемый файл — артефакт сборки под конкретную архитектуру
   - src: dist/${GOOS}_${GOARCH}/myapp${EXE}
     dst: /usr/local/bin/myapp
     win_dst: myapp.exe
@@ -66,18 +66,18 @@ files:
       mode: 0755
     expand: true
 
-  # Daemon binary (not installed on Windows)
+  # Бинарник демона (на Windows не устанавливается — нет win_dst)
   - src: dist/${GOOS}_${GOARCH}/myappd${EXE}
     dst: /usr/local/bin/myappd
     file_info:
       mode: 0755
     expand: true
 
-  # Default configuration file — preserved on upgrade (Linux only; see note)
+  # Конфигурационный файл по умолчанию — сохраняется при обновлении (только Linux; см. ниже)
   #
-  # type: config|noreplace means the package manager will NOT overwrite this
-  # file if the user has modified it. On macOS/Windows there is no equivalent
-  # mechanism — the file is simply copied (handled via postinstall script if needed).
+  # type: config|noreplace означает, что пакетный менеджер НЕ перезапишет этот файл,
+  # если пользователь его изменил. На macOS и Windows аналогичного механизма нет —
+  # файл просто копируется (при необходимости обрабатывается через postinstall-скрипт).
   - src: config/myapp.yaml
     dst: /etc/myapp/myapp.yaml
     win_dst: config\myapp.yaml
@@ -87,23 +87,23 @@ files:
       owner: root
       group: root
 
-  # Man page (Linux/macOS only — no win_dst)
+  # Man-страница (только Linux/macOS — нет win_dst)
   - src: docs/myapp.1.gz
     dst: /usr/local/share/man/man1/myapp.1.gz
     type: doc
     file_info:
       mode: 0644
 
-  # Systemd unit (Linux only — no win_dst, no macOS path)
+  # Systemd-юнит (только Linux — нет win_dst и пути для macOS)
   - src: dist/myapp.service
     dst: /lib/systemd/system/myapp.service
     file_info:
       mode: 0644
 
-  # LaunchDaemon plist (macOS only — declared here, platform override excludes it from Linux/Windows)
-  # Tip: use platform overrides below to restrict files to specific platforms.
+  # Подсказка: LaunchDaemon plist для macOS лучше объявлять в секции platforms.macos.files
+  # ниже, чтобы явно ограничить его установку только macOS.
 
-  # Data directory — must be created with correct permissions
+  # Директория данных — создаётся с нужными правами доступа
   - dst: /var/lib/myapp
     type: dir
     file_info:
@@ -111,70 +111,70 @@ files:
       owner: myapp
       group: myapp
 
-  # Log directory (ghost — RPM tracks it but doesn't install files)
+  # Лог-файл ghost (только RPM)
   #
-  # type: ghost means the entry is registered in the RPM database
-  # but the actual content is not shipped. Useful for log files that
-  # the daemon creates at runtime, so `rpm -V` doesn't complain about them.
+  # type: ghost регистрирует запись в базе данных RPM, не устанавливая сам файл.
+  # Полезно для лог-файлов и файлов состояния, которые демон создаёт в рантайме —
+  # тогда `rpm -V` не будет жаловаться на их отсутствие.
   - dst: /var/log/myapp.log
     type: ghost
 
-  # Recursive documentation tree
+  # Рекурсивное дерево документации
   #
-  # type: tree installs the entire directory recursively.
-  # Equivalent to: cp -r docs/ /usr/share/doc/myapp/
+  # type: tree устанавливает всю директорию рекурсивно.
+  # Эквивалентно: cp -r docs/ /usr/share/doc/myapp/
   - src: docs/
     dst: /usr/share/doc/myapp/
     type: tree
     file_info:
       mode: 0644
 
-  # License file
+  # Файл лицензии
   - src: LICENSE
     dst: /usr/share/licenses/myapp/LICENSE
     type: license
 
-  # Symlink: /usr/bin/myapp → /usr/local/bin/myapp
+  # Символическая ссылка: /usr/bin/myapp → /usr/local/bin/myapp
   #
-  # type: symlink — src is the link target (where it points),
-  # dst is the link path that will be created.
+  # type: symlink — src это цель ссылки (куда указывает),
+  # dst — путь, по которому будет создана ссылка на файловой системе.
   - src: /usr/local/bin/myapp
     dst: /usr/bin/myapp
     type: symlink
 
 
 # -----------------------------------------------------------------------------
-# SCRIPTS — lifecycle hooks
+# СКРИПТЫ — хуки жизненного цикла пакета
 # -----------------------------------------------------------------------------
 #
-# Linux (nfpm): all four hooks are supported
-# macOS (pkgbuild): preinstall and postinstall only
-# Windows (wixl): limited — custom actions via EXE only; skipped by default
+# Linux (nfpm): поддерживаются все четыре хука
+# macOS (pkgbuild): только preinstall и postinstall
+# Windows (wixl): ограниченная поддержка — только через CustomAction (EXE); по умолчанию пропускается
 #
-# Scripts receive platform-specific arguments:
-#   macOS: $1=pkg_path  $2=install_location  $3=target_volume  $4=script_name
+# На macOS скрипты получают аргументы:
+#   $1=pkg_path  $2=install_location  $3=target_volume  $4=script_name
 
 scripts:
   preinstall: scripts/preinstall.sh
   postinstall: scripts/postinstall.sh
-  preremove: scripts/preremove.sh     # Linux only
-  postremove: scripts/postremove.sh   # Linux only
+  preremove: scripts/preremove.sh     # только Linux
+  postremove: scripts/postremove.sh   # только Linux
 
 
 # -----------------------------------------------------------------------------
-# DEPENDENCIES — Linux only (no equivalent in MSI or macOS .pkg)
+# ЗАВИСИМОСТИ — только Linux (аналога нет в MSI и macOS .pkg)
 # -----------------------------------------------------------------------------
 #
-# Syntax depends on the format. Crossler normalises the base form and
-# applies format-specific syntax automatically. Use overrides (below)
-# when you need per-format dependency strings.
+# Синтаксис зависит от формата. Crossler нормализует базовую форму и автоматически
+# применяет синтаксис конкретного формата. Используйте overrides (ниже), если нужны
+# специфические строки зависимостей для отдельного формата.
 #
-# depends     — hard dependency; package manager will refuse to install without it
-# recommends  — soft; auto-installed by apt/dnf if possible, ignored by apk
-# suggests    — informational only; never auto-installed
-# conflicts   — cannot be installed alongside this package
-# replaces    — replaces/supersedes another package
-# provides    — declares a virtual package name this package satisfies
+# depends     — жёсткая зависимость; пакетный менеджер откажет в установке без неё
+# recommends  — мягкая; автоустанавливается apt/dnf если возможно, игнорируется apk
+# suggests    — только информационная; никогда не устанавливается автоматически
+# conflicts   — пакеты, несовместимые с данным
+# replaces    — пакеты, которые данный заменяет/вытесняет
+# provides    — виртуальные пакеты, которые данный пакет предоставляет
 
 depends:
   - curl
@@ -198,61 +198,61 @@ provides:
 
 
 # -----------------------------------------------------------------------------
-# PLATFORM OVERRIDES
+# ПЕРЕОПРЕДЕЛЕНИЯ ДЛЯ ПЛАТФОРМ
 # -----------------------------------------------------------------------------
 #
-# Settings here override or extend the base configuration for a specific OS.
-# Any base-level field can be overridden here.
+# Настройки здесь переопределяют или дополняют базовую конфигурацию для конкретной ОС.
+# Любое поле верхнего уровня может быть переопределено.
 
 platforms:
 
   # ── Linux ──────────────────────────────────────────────────────────────────
   linux:
-    # Additional Linux-only files (e.g. AppArmor profile, bash-completion)
+    # Файлы только для Linux (например, профиль AppArmor, bash-completion)
     files:
       - src: dist/myapp-completion.bash
         dst: /usr/share/bash-completion/completions/myapp
         file_info:
           mode: 0644
 
-    # Format-level overrides — applied on top of platform + base settings
+    # Переопределения на уровне формата — применяются поверх платформенных и базовых настроек
     formats:
 
       deb:
-        # Debian-style version constraints use parentheses and spaces
+        # Debian-стиль: ограничения версий в круглых скобках с пробелами
         depends:
           - curl (>= 7.68)
           - bash (>= 5.0)
           - libsystemd0
-        # Predepends are processed before files are unpacked
+        # predepends обрабатываются до распаковки файлов пакета
         predepends:
           - libc6 (>= 2.17)
-        # dpkg triggers: notify other packages about changes
+        # dpkg-триггеры: уведомляют другие пакеты об изменениях
         triggers:
           interest:
             - /usr/lib/python3/dist-packages
-        # postinstall script for deb can differ (e.g. calls systemctl)
+        # postinstall для deb может отличаться (например, вызывает systemctl)
         scripts:
           postinstall: scripts/postinstall-deb.sh
 
       rpm:
-        # RPM-style: space-separated, no parentheses
+        # RPM-стиль: через пробел, без круглых скобок
         depends:
           - curl >= 7.68
           - bash >= 5.0
           - systemd-libs
-        # RPM release tag: usually "1" or "1.el8", "1.fc39" for distro-specific
+        # Тег release RPM: обычно "1" или "1.el8", "1.fc39" для дистрибутивоспецифичных сборок
         release: "1"
-        # Compression algorithm for the archive inside the RPM
-        # zstd is fastest; xz is smallest; gzip is most compatible
+        # Алгоритм сжатия архива внутри RPM:
+        # zstd — самый быстрый; xz — наименьший размер; gzip — максимальная совместимость
         compression: zstd
-        # Extended scripts available only in RPM
+        # Расширенные хуки, доступные только в RPM
         scripts:
-          pretrans: scripts/pretrans.sh   # before transaction starts
-          posttrans: scripts/posttrans.sh # after transaction completes
+          pretrans: scripts/pretrans.sh   # до начала транзакции
+          posttrans: scripts/posttrans.sh # после завершения транзакции
 
       apk:
-        # Alpine-style: no spaces around operators
+        # Alpine-стиль: без пробелов вокруг операторов
         depends:
           - curl>=7.68
           - bash>=5.0
@@ -261,7 +261,7 @@ platforms:
 
   # ── Windows ────────────────────────────────────────────────────────────────
   windows:
-    # Windows-only files
+    # Файлы только для Windows
     files:
       - src: dist/windows_${GOARCH}/myapp-helper.exe
         win_dst: myapp-helper.exe
@@ -273,15 +273,15 @@ platforms:
 
     formats:
       msi:
-        # UpgradeCode is the stable product identity — NEVER change it.
-        # Changing UpgradeCode breaks the upgrade path; Windows will install
-        # a second copy instead of upgrading the existing one.
+        # UpgradeCode — стабильный идентификатор продукта. НИКОГДА не меняйте его.
+        # Изменение UpgradeCode нарушает цепочку обновлений: Windows установит
+        # второй экземпляр программы вместо обновления существующего.
         upgrade_code: "A1B2C3D4-E5F6-7890-ABCD-EF1234567890"
 
-        # perMachine = all users (C:\Program Files); perUser = current user only
+        # perMachine = для всех пользователей (C:\Program Files); perUser = только текущий пользователь
         install_scope: perMachine
 
-        # Windows registry entries written by the installer
+        # Записи реестра Windows, создаваемые инсталлятором
         registry:
           - root: HKLM                              # HKLM | HKCU | HKCR | HKMU
             key: "Software\\PowerTech\\MyApp"
@@ -293,7 +293,7 @@ platforms:
                 type: string
                 value: "2.4.1"
 
-        # Start Menu / Desktop shortcuts
+        # Ярлыки в меню Пуск / на рабочем столе
         shortcuts:
           - location: StartMenu                     # StartMenu | Desktop | ProgramMenuFolder
             name: MyApp
@@ -302,7 +302,7 @@ platforms:
             icon: "[INSTALLFOLDER]myapp.ico"
             description: Launch MyApp
 
-        # File type associations
+        # Ассоциации типов файлов
         file_associations:
           - extension: .myapp
             prog_id: MyApp.Document
@@ -310,17 +310,17 @@ platforms:
             target: "[INSTALLFOLDER]myapp.exe"
             argument: '"%1"'
 
-        # MSI installer conditions (prevent installation on unsupported Windows)
+        # Условия установщика MSI (запрещают установку на неподдерживаемых версиях Windows)
         conditions:
           - check: os_version
-            minimum: "6.1"      # Require Windows 7 or later
+            minimum: "6.1"      # требуется Windows 7 или новее
 
   # ── macOS ──────────────────────────────────────────────────────────────────
   macos:
-    # Reverse-DNS identifier — must be unique per product
+    # Идентификатор в обратной DNS-нотации — должен быть уникальным для каждого продукта
     identifier: com.powertech.myapp
 
-    # macOS-only files
+    # Файлы только для macOS
     files:
       - src: dist/myapp.plist
         dst: /Library/LaunchDaemons/com.powertech.myapp.plist
@@ -331,40 +331,40 @@ platforms:
 
     formats:
       pkg:
-        # Component property list controls installer behavior for bundles.
-        # For simple CLI tools this section is usually not needed.
+        # Component property list управляет поведением установщика для бандлов.
+        # Для простых CLI-утилит этот раздел обычно не нужен.
         component_plist:
           - bundle_path: usr/local/bin/myapp
             relocatable: false
 
       dmg:
-        # Image format: ULFO (lzfse) is recommended for modern macOS;
-        # UDZO (zlib) for maximum compatibility with older systems.
+        # Формат образа: ULFO (lzfse) рекомендуется для современных macOS;
+        # UDZO (zlib) — для максимальной совместимости со старыми системами.
         format: ULFO
         volume_name: "MyApp 2.4.1"
         background_image: assets/dmg-background.png
         icon_size: 96
         window_size: [800, 400]
-        # Position of icons inside the DMG window
+        # Позиции иконок внутри окна DMG
         icon_positions:
           - name: MyApp.app
             x: 200
             y: 190
-          - name: Applications  # drag-to-install symlink
+          - name: Applications  # символическая ссылка для перетаскивания при установке
             x: 600
             y: 190
 
 
 # -----------------------------------------------------------------------------
-# ARCHITECTURE OVERRIDES
+# ПЕРЕОПРЕДЕЛЕНИЯ ДЛЯ АРХИТЕКТУР
 # -----------------------------------------------------------------------------
 #
-# Applied after platform overrides. Use sparingly — most differences are
-# already handled by ${GOARCH} variable expansion in file paths.
+# Применяются после переопределений платформы. Использовать редко — большинство
+# различий уже покрывается подстановкой ${GOARCH} в путях к файлам.
 
 architectures:
   arm64:
-    # Example: ship an arm64-specific tuning config
+    # Пример: поставляем конфиг тонкой настройки специфичный для arm64
     files:
       - src: config/myapp-arm64.yaml
         dst: /etc/myapp/arch.yaml
@@ -374,100 +374,100 @@ architectures:
 
 
 # -----------------------------------------------------------------------------
-# SIGNING — Authenticode (Windows)
+# ПОДПИСЬ — Authenticode (Windows)
 # -----------------------------------------------------------------------------
 #
-# Authenticode is applied in two stages (order matters):
-#   1. Sign the .exe binary BEFORE packaging → the MSI will contain a signed EXE
-#   2. Sign the .msi file AFTER wixl creates it
+# Authenticode применяется в два этапа (порядок важен):
+#   1. Подписываем .exe-бинарник ДО упаковки → MSI будет содержать подписанный EXE
+#   2. Подписываем .msi ПОСЛЕ того, как wixl его создаст
 #
-# Tool selection is automatic based on build host:
-#   Linux/macOS host → osslsigncode
-#   Windows host     → signtool.exe
+# Инструмент выбирается автоматически по хост-платформе:
+#   Хост Linux/macOS → osslsigncode
+#   Хост Windows    → signtool.exe
 #
-# Certificate formats accepted:
-#   - Path to a .pfx / .p12 file
-#   - "base64:<base64-encoded-pfx>" — for storing certs in CI secrets
-#   - "env:<VAR_NAME>" — read path from environment variable
+# Поддерживаемые форматы сертификата:
+#   - Путь к файлу .pfx / .p12
+#   - "base64:<base64-encoded-pfx>" — для хранения сертификата в CI-секретах
+#   - "env:<VAR_NAME>" — читать путь из переменной окружения
 #
-# Use RFC 3161 timestamp servers so signatures stay valid after cert expiry.
-# Multiple TSA URLs increase reliability (tried in order).
+# Используйте RFC 3161 timestamp-серверы — подписи останутся валидными после истечения сертификата.
+# Несколько URL повышают надёжность: перебираются по порядку.
 
 sign_windows:
-  certificate: "env:WIN_CERT_PFX"        # path to PFX or base64:... or env:VAR
+  certificate: "env:WIN_CERT_PFX"        # путь к PFX, base64:... или env:VAR
   password: "env:WIN_CERT_PASS"
   timestamp_url:
     - "http://timestamp.digicert.com"
     - "http://timestamp.sectigo.com"
-  hash_algorithm: sha256                  # always sha256; sha1 is deprecated
-  description: "MyApp by PowerTech"      # shown in UAC elevation dialog
+  hash_algorithm: sha256                  # всегда sha256; sha1 устарел
+  description: "MyApp by PowerTech"      # отображается в диалоге повышения прав UAC
   url: "https://powertech.example.com"
 
 
 # -----------------------------------------------------------------------------
-# SIGNING — Apple Code Signing + Notarization (macOS)
+# ПОДПИСЬ — Apple Code Signing + нотаризация (macOS)
 # -----------------------------------------------------------------------------
 #
-# Apple signing is applied in stages:
-#   1. Sign the binary BEFORE packaging
-#   2. Build .pkg or .dmg
-#   3. Sign the .pkg / .dmg
-#   4. Notarize (submit to Apple servers, wait for ticket)
-#   5. Staple the notarization ticket into the file
+# Подпись Apple применяется поэтапно:
+#   1. Подписываем бинарник ДО упаковки
+#   2. Собираем .pkg или .dmg
+#   3. Подписываем .pkg / .dmg
+#   4. Нотаризируем (отправляем на серверы Apple, ждём тикет)
+#   5. Вшиваем тикет нотаризации в файл (staple)
 #
-# Tool selection by host:
-#   macOS host        → codesign + notarytool (native, requires Keychain)
-#   Linux/Windows host → rcodesign (open-source, works without macOS)
+# Инструмент выбирается по хост-платформе:
+#   Хост macOS         → codesign + notarytool (нативные, требуют Keychain)
+#   Хост Linux/Windows → rcodesign (open-source, работает без macOS)
 #
-# Hardened Runtime (code_signature_flags: runtime) is MANDATORY for notarization.
-# Without it, Apple will reject the submission.
+# Hardened Runtime (code_signature_flags: runtime) ОБЯЗАТЕЛЕН для нотаризации.
+# Без него Apple отклонит отправку.
 #
-# entitlements: plist file with capability declarations.
-# Most CLI tools don't need any entitlements — omit the field.
+# entitlements — plist-файл с объявлением возможностей.
+# Большинству CLI-утилит entitlements не нужны — поле можно не указывать.
 #
-# api_key_file: App Store Connect API key JSON for notarytool / rcodesign.
-# Alternative: use api_key, api_issuer, api_key_id fields separately.
+# api_key_file — JSON-файл API-ключа App Store Connect для notarytool / rcodesign.
+# Альтернатива: указывать api_key, api_issuer, api_key_id по отдельности.
 
 sign_macos:
-  certificate: "env:MAC_CERT_P12"        # path to .p12 or base64:... or env:VAR
+  certificate: "env:MAC_CERT_P12"        # путь к .p12, base64:... или env:VAR
   password: "env:MAC_CERT_PASS"
 
-  # For native codesign on macOS (identity from Keychain):
+  # Для нативного codesign на macOS (идентификатор из Keychain):
   identity: "Developer ID Application: PowerTech LLC (ABCD1234EF)"
 
-  # Hardened Runtime — required for notarization
+  # Hardened Runtime — обязателен для нотаризации
   code_signature_flags: runtime
 
-  # Entitlements (usually empty for CLI tools)
+  # Entitlements (обычно пусты для CLI-утилит — раскомментировать при необходимости)
   # entitlements: entitlements.plist
 
-  # Notarization via App Store Connect API key
+  # Нотаризация через API-ключ App Store Connect
   notarize: true
-  api_key_file: "env:NOTARY_API_KEY_JSON"   # JSON file with key, issuer, id
+  api_key_file: "env:NOTARY_API_KEY_JSON"   # JSON-файл с key, issuer, id
   notary_wait_seconds: 3600
 
-  # Staple the ticket into the package (allows offline Gatekeeper verification)
+  # Вшиваем тикет в пакет (позволяет Gatekeeper проверять подпись офлайн)
   staple: true
 
 
 # -----------------------------------------------------------------------------
-# HOMEBREW FORMULA
+# HOMEBREW-ФОРМУЛА
 # -----------------------------------------------------------------------------
 #
-# Crossler generates a .rb formula from metadata above + SHA256 of tar.gz
-# archives (computed automatically after build). The formula is written to
-# homebrew/Formula/myapp.rb and can be committed to a Homebrew tap repo.
+# Crossler генерирует .rb-формулу из метаданных выше + SHA256 tar.gz-архивов
+# (хэши вычисляются автоматически после сборки). Формула записывается в
+# homebrew/Formula/myapp.rb и может быть закоммичена в репозиторий Homebrew tap.
 #
-# The generated formula downloads the correct archive for the user's platform
-# and arch, and installs the binary + man page.
+# Сгенерированная формула скачивает нужный архив для платформы и архитектуры
+# пользователя и устанавливает бинарник + man-страницу.
 #
-# test_command: a simple shell command to verify the installation.
+# test_command — простая команда для проверки корректности установки.
 
 homebrew:
-  tap: powertech-center/tap            # GitHub repo: powertech-center/homebrew-tap
+  tap: powertech-center/tap            # GitHub-репозиторий: powertech-center/homebrew-tap
   formula_path: homebrew/Formula/myapp.rb
   test_command: "myapp --version"
-  # Optional: additional install steps added to the formula's install block
+  # Дополнительные шаги установки, добавляемые в блок install формулы
   install_extras:
     - bash_completion.install "dist/myapp-completion.bash" => "myapp"
     - man1.install "docs/myapp.1"
