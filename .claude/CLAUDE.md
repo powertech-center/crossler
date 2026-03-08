@@ -53,9 +53,7 @@ Crossler собирается для **3 ОС × 2 архитектуры = 6 т
 
 Их цель: одной командой установить Crossler со всеми внешними зависимостями в любом окружении (CI/CD Docker, GitHub Actions runner, машина разработчика).
 
-**Текущее состояние** (ветка `feature/dependencies`): скрипты устанавливают только внешние инструменты (wixl, nfpm, osslsigncode, rcodesign, xar, bomutils, signtool, wix).
-
-**Следующий шаг** после отладки установки зависимостей: добавить в скрипты скачивание и установку самого бинарника `crossler` из GitHub Releases (`github.com/powertech-center/crossler`).
+Скрипты устанавливают сам бинарник `crossler` и все внешние инструменты (wixl, nfpm, osslsigncode, rcodesign, xar, bomutils на Linux/macOS; nfpm, rcodesign, signtool, wix на Windows).
 
 ### Целевая аудитория
 
@@ -111,7 +109,7 @@ Crossler собирается для **3 ОС × 2 архитектуры = 6 т
 
 Локальная разработка ведётся внутри Dev Container на базе Alpine Linux:
 
-- **Образ**: `ghcr.io/powertech-center/alpine-dev:latest` — содержит Go, все необходимые инструменты разработки
+- **Образ**: `ghcr.io/powertech-center/alpine-go:latest` — содержит Go, все необходимые инструменты разработки и crossler с зависимостями
 - **VSCode**: `.vscode/settings.json` + `.vscode/tasks.json` (задачи build / run / test)
 
 ## CI: сборка и релиз

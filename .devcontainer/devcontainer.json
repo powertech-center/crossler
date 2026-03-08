@@ -1,6 +1,6 @@
 {
   "name": "Crossler Dev",
-  "image": "ghcr.io/powertech-center/crossler-dev:latest",
+  "image": "ghcr.io/powertech-center/alpine-go:latest",
   "remoteUser": "dev",
   "customizations": {
     "vscode": {
