@@ -1,217 +1,263 @@
 #!/bin/bash
-# pkgbuild.sh — полный пример использования pkgbuild для создания macOS .pkg
+# pkgbuild.sh — полный пример создания macOS .pkg через pkgbuild + productbuild
 #
-# pkgbuild входит в Xcode Command Line Tools (macOS native), доп. установка не нужна.
-# Создаёт компонентные .pkg файлы для:
-#   - тихой установки в CI/CD
-#   - корпоративного деплоя через MDM
-#   - объединения через productbuild в финальный дистрибутивный пакет
+# pkgbuild и productbuild входят в Xcode Command Line Tools (macOS native).
+# Работают ТОЛЬКО на macOS.
 #
-# ВНИМАНИЕ: pkgbuild работает ТОЛЬКО на macOS (нативный инструмент Apple).
-#
-# Полный workflow:
-#   pkgbuild → component.pkg → productbuild → installer.pkg → notarytool → stapler
+# Workflow:
+#   pkgbuild  → component.pkg  (компонентный пакет с файлами и скриптами)
+#   productbuild → installer.pkg  (дистрибутивный пакет с GUI-wizard)
+#   productsign  → подписать готовый пакет
+#   notarytool   → нотаризировать
+#   stapler      → приложить тикет нотаризации
 #
 # Использование:
 #   chmod +x pkgbuild.sh && ./pkgbuild.sh
 # ─────────────────────────────────────────────────────────────────────────────
 
-set -e  # прерваться при любой ошибке
-set -u  # ошибка при использовании неинициализированной переменной
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# КОНФИГУРАЦИЯ
-# ═══════════════════════════════════════════════════════════════════════════════
+set -euo pipefail
 
 APP_NAME="myapp"
-VERSION="1.2.3"
-ARCH="${ARCH:-arm64}"  # arm64 или amd64 (можно передать через переменную окружения)
+VERSION="${VERSION:-1.2.3}"
+ARCH="${ARCH:-arm64}"
 
-# Обратный DNS-идентификатор пакета.
-# ПРАВИЛО: стабилен между версиями — одинаков для 1.0, 2.0, 3.0.
-# macOS использует его для проверки установленных пакетов (pkgutil --info).
 IDENTIFIER="com.powertech.${APP_NAME}.pkg"
-
-# Исходный бинарник (результат Go-сборки)
 BINARY_SRC="dist/${APP_NAME}-darwin-${ARCH}"
 
-# Выходной .pkg файл
-PKG_OUTPUT="dist/${APP_NAME}-darwin-${ARCH}.pkg"
-
-# Временные директории (очищаются в конце)
 PAYLOAD_DIR="/tmp/${APP_NAME}-pkg-payload"
 SCRIPTS_DIR="/tmp/${APP_NAME}-pkg-scripts"
 COMPONENT_PKG="/tmp/${APP_NAME}-component.pkg"
+DIST_XML="/tmp/${APP_NAME}-distribution.xml"
+OUTPUT_PKG="dist/${APP_NAME}-darwin-${ARCH}.pkg"
+
+mkdir -p "$(dirname "${OUTPUT_PKG}")"
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # ПОДГОТОВКА PAYLOAD
 # ═══════════════════════════════════════════════════════════════════════════════
 #
-# Payload — дерево файлов, которое будет скопировано на диск.
-# ВАРИАНТ 1: структура соответствует абсолютным путям (--install-location /)
-#   payload/usr/local/bin/myapp → установится в /usr/local/bin/myapp
-#   payload/etc/myapp/config.yaml → установится в /etc/myapp/config.yaml
+# Payload — дерево файлов, которое будет скопировано на диск при установке.
+# Структура payload соответствует итоговой структуре на диске.
 #
-# ВАРИАНТ 2: структура для конкретной директории (--install-location /usr/local/bin)
-#   payload/myapp → установится в /usr/local/bin/myapp
+# Два варианта:
+#   --install-location /  + абсолютный layout:
+#     payload/usr/local/bin/myapp → /usr/local/bin/myapp
+#   --install-location /usr/local/bin  + плоский layout:
+#     payload/myapp → /usr/local/bin/myapp
 
-echo "Preparing payload for ${APP_NAME} ${VERSION} (${ARCH})..."
-
-# Создать структуру, соответствующую абсолютным путям (Вариант 1)
 mkdir -p "${PAYLOAD_DIR}/usr/local/bin"
 mkdir -p "${PAYLOAD_DIR}/usr/share/doc/${APP_NAME}"
 mkdir -p "${PAYLOAD_DIR}/usr/share/man/man1"
 mkdir -p "${PAYLOAD_DIR}/etc/${APP_NAME}"
-mkdir -p "${PAYLOAD_DIR}/var/lib/${APP_NAME}"
-mkdir -p "${PAYLOAD_DIR}/var/log/${APP_NAME}"
 
-# Основной бинарник
 cp "${BINARY_SRC}" "${PAYLOAD_DIR}/usr/local/bin/${APP_NAME}"
-
-# Права файлов устанавливаются ДО упаковки.
-# pkgbuild с --ownership recommended:
-#   - системные пути (/usr, /etc) → root:wheel автоматически
-#   - 755 для бинарников, 644 для конфигов
 chmod 755 "${PAYLOAD_DIR}/usr/local/bin/${APP_NAME}"
 
-# Документация
-if [ -f "README.md" ]; then
-  cp "README.md" "${PAYLOAD_DIR}/usr/share/doc/${APP_NAME}/README.md"
-  chmod 644 "${PAYLOAD_DIR}/usr/share/doc/${APP_NAME}/README.md"
-fi
+[ -f "README.md" ] && cp "README.md" "${PAYLOAD_DIR}/usr/share/doc/${APP_NAME}/"
+[ -f "man/${APP_NAME}.1" ] && gzip -c "man/${APP_NAME}.1" \
+    > "${PAYLOAD_DIR}/usr/share/man/man1/${APP_NAME}.1.gz"
 
-# Man-страница (сжатая)
-if [ -f "man/${APP_NAME}.1" ]; then
-  gzip -c "man/${APP_NAME}.1" > "${PAYLOAD_DIR}/usr/share/man/man1/${APP_NAME}.1.gz"
-  chmod 644 "${PAYLOAD_DIR}/usr/share/man/man1/${APP_NAME}.1.gz"
-fi
-
-# Конфигурационный файл по умолчанию
 cat > "${PAYLOAD_DIR}/etc/${APP_NAME}/config.yaml" << 'EOF'
-# Default configuration for myapp
 output_dir: ./dist
 verbose: false
 EOF
 chmod 644 "${PAYLOAD_DIR}/etc/${APP_NAME}/config.yaml"
-
-# Права на директории данных
-# ВАЖНО: pkgbuild с --ownership recommended назначит root:wheel для системных путей.
-# Для кастомного владельца нужно использовать --ownership preserve и явно задать uid/gid,
-# или менять права в postinstall скрипте.
-chmod 755 "${PAYLOAD_DIR}/var/lib/${APP_NAME}"
-chmod 755 "${PAYLOAD_DIR}/var/log/${APP_NAME}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # ПОДГОТОВКА СКРИПТОВ
 # ═══════════════════════════════════════════════════════════════════════════════
 #
-# preinstall  — выполняется ДО копирования файлов (с правами root)
-# postinstall — выполняется ПОСЛЕ копирования файлов (с правами root)
+# Аргументы скриптов при вызове:
+#   $1 — путь к .pkg файлу
+#   $2 — install-location (директория назначения, напр. /)
+#   $3 — путь к тому (обычно /, иногда /Volumes/...)
+#   $4 — имя скрипта (preinstall / postinstall)
 #
-# Аргументы при вызове скрипта:
-#   $1 — полный путь к .pkg файлу
-#   $2 — полный путь к директории назначения (install-location, обычно /)
-#   $3 — полный путь к тому (обычно /, иногда /Volumes/ExtDisk)
-#   $4 — имя скрипта (preinstall или postinstall)
-#
-# ВАЖНО: скрипты выполняются без пользовательского окружения.
-#   Нельзя использовать: $HOME, ~, пользовательский $PATH, переменные .bashrc
-#   Используйте абсолютные пути: /usr/local/bin/myapp, /bin/bash, /usr/bin/env
+# ВАЖНО:
+#   - Скрипты выполняются от root БЕЗ пользовательского окружения
+#   - Нельзя использовать: $HOME, ~, пользовательский $PATH, .bashrc
+#   - Только абсолютные пути: /usr/bin/env, /usr/local/bin/myapp
+#   - preinstall: код != 0 → установка прерывается
+#   - postinstall: код != 0 → предупреждение (файлы уже скопированы)
+#   - Файлы должны называться именно preinstall/postinstall (без расширения)
+#     или другие файлы доступны через переменную $PACKAGE_SCRIPTS
 
 mkdir -p "${SCRIPTS_DIR}"
 
-# ── preinstall ──────────────────────────────────────────────────────────────
 cat > "${SCRIPTS_DIR}/preinstall" << 'PREINSTALL'
 #!/bin/bash
-# Выполняется ДО копирования файлов.
-# Код возврата != 0 → установка прерывается.
 set -e
+PACKAGE_PATH="$1"
+INSTALL_LOCATION="$2"
+TARGET_VOLUME="$3"
 
-PACKAGE_PATH="$1"     # путь к .pkg (информационно)
-INSTALL_LOCATION="$2" # директория назначения (обычно /)
-TARGET_VOLUME="$3"    # том (обычно /)
-
-echo "Starting preinstall for myapp..."
-
-# Остановить запущенный процесс (если есть)
-if pgrep -x "myapp" > /dev/null 2>&1; then
-    echo "Stopping running myapp process..."
-    pkill -x "myapp" || true
+# Остановить запущенный процесс
+if /usr/bin/pgrep -x "myapp" > /dev/null 2>&1; then
+    /usr/bin/pkill -x "myapp" || true
     sleep 1
-fi
-
-# Проверить наличие системных зависимостей
-if ! command -v curl >/dev/null 2>&1; then
-    echo "Warning: curl not found, some features may not work"
 fi
 
 exit 0
 PREINSTALL
 chmod 755 "${SCRIPTS_DIR}/preinstall"
 
-# ── postinstall ─────────────────────────────────────────────────────────────
 cat > "${SCRIPTS_DIR}/postinstall" << 'POSTINSTALL'
 #!/bin/bash
-# Выполняется ПОСЛЕ копирования файлов.
-# Код возврата != 0 → предупреждение, но файлы уже установлены.
 set -e
-
-PACKAGE_PATH="$1"
-INSTALL_LOCATION="$2"
 TARGET_VOLUME="$3"
-
-# Итоговые пути (TARGET_VOLUME обычно "/")
 BINARY="${TARGET_VOLUME}usr/local/bin/myapp"
-CONFIG_DIR="${TARGET_VOLUME}etc/myapp"
-DATA_DIR="${TARGET_VOLUME}var/lib/myapp"
-LOG_DIR="${TARGET_VOLUME}var/log/myapp"
 
-echo "Running postinstall for myapp..."
+[ -f "${BINARY}" ] && chmod 755 "${BINARY}"
 
-# Убедиться что бинарник исполняемый
-if [ -f "${BINARY}" ]; then
-    chmod 755 "${BINARY}"
-    echo "Binary installed: ${BINARY}"
-fi
-
-# Настроить права на директории (если нужен специфичный владелец)
-# chmod 750 "${DATA_DIR}"
-# chown myapp:myapp "${DATA_DIR}" 2>/dev/null || true  # может не работать без создания пользователя
-
-# Очистить кеш для command lookup (обновить базу команд)
-if [ -x "/usr/bin/mandb" ]; then
-    /usr/bin/mandb -q 2>/dev/null || true
-fi
-
-echo "myapp ${VERSION} installed successfully!"
-echo "Run 'myapp --help' to get started."
-
+echo "myapp installed. Run: myapp --help"
 exit 0
 POSTINSTALL
 chmod 755 "${SCRIPTS_DIR}/postinstall"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# COMPONENT PLIST (опционально, для приложений-бандлов)
+# PKGBUILD — СОЗДАНИЕ КОМПОНЕНТНОГО ПАКЕТА
+# ═══════════════════════════════════════════════════════════════════════════════
+
+pkgbuild \
+    \
+    --root "${PAYLOAD_DIR}" \
+    \
+    --identifier "${IDENTIFIER}" \
+    \
+    --version "${VERSION}" \
+    \
+    --install-location "/" \
+    \
+    --scripts "${SCRIPTS_DIR}" \
+    \
+    --ownership "recommended" \
+    \
+    --filter '\.DS_Store$' \
+    --filter '.*\.dSYM$' \
+    --filter '.*\.o$' \
+    \
+    "${COMPONENT_PKG}"
+
+# ── Справочник всех флагов pkgbuild ───────────────────────────────────────────
+#
+# ИСТОЧНИК СОДЕРЖИМОГО (взаимоисключающие):
+#
+# --root <path>
+#   Упаковать всё дерево директории в payload.
+#   Структура директории соответствует итоговой на диске.
+#
+# --component <path>
+#   Упаковать отдельный бандл (.app, .framework, .plugin).
+#   Лучше чем --root для приложений с bundle-структурой.
+#   Нельзя совмещать с --root.
+#
+# --nopayload
+#   Пакет только со скриптами, без файлов.
+#   Полезно для: создания symlink, настройки PATH, регистрации в launchd.
+#
+# ИДЕНТИФИКАЦИЯ:
+#
+# --identifier <id>
+#   Уникальный идентификатор в reverse DNS: com.company.app.pkg
+#   Стабилен между версиями (1.0, 2.0, 3.0 — один идентификатор).
+#   macOS использует для: pkgutil --info, проверки установленных пакетов.
+#
+# --version <version>
+#   Версия пакета. Используется macOS для версионирования при обновлении.
+#
+# --install-location <path>
+#   Директория назначения. Обычно "/" для абсолютного layout.
+#   Или "/usr/local/bin" для плоского layout с одним бинарником.
+#
+# --prior <pkg-path>
+#   Наследовать identifier, version, install-location из предыдущего пакета.
+#   Используется в incremental update workflows.
+#
+# СКРИПТЫ И БАНДЛЫ:
+#
+# --scripts <dir>
+#   Директория со скриптами. Распознаёт: preinstall, postinstall.
+#   Остальные файлы доступны в скриптах через $PACKAGE_SCRIPTS.
+#   Файлы должны быть исполняемыми (chmod 755).
+#
+# --component-plist <plist>
+#   XML plist для описания поведения бандлов (.app/.framework/.plugin).
+#   Только для режима --root и --component (не --nopayload).
+#   Генерация шаблона: pkgbuild --analyze --root <root> components.plist
+#
+# ФИЛЬТРАЦИЯ:
+#
+# --filter <regex>
+#   Исключить файлы по extended regex относительно payload.
+#   Переопределяет встроенные фильтры pkgbuild.
+#   Можно указывать несколько раз.
+#   Встроенные фильтры: .DS_Store, .svn, CVS и другие мусорные файлы.
+#
+# ПРАВА:
+#
+# --ownership <mode>
+#   recommended    — системные пути → root:wheel; /Users → текущий пользователь.
+#                    Рекомендуется для большинства случаев.
+#   preserve       — копировать точные uid/gid с диска.
+#                    Проблема: uid/gid могут отличаться на разных машинах.
+#   preserve-other — recommended для своих файлов, preserve для остальных.
+#
+# АНАЛИЗ:
+#
+# --analyze
+#   Создать шаблон component plist вместо сборки пакета.
+#   Пример: pkgbuild --analyze --root payload/ components.plist
+#
+# ПОДПИСЬ:
+#
+# --sign <identity>
+#   Подписать пакет. Для дистрибуции: "Developer ID Installer: Name (TEAM_ID)"
+#
+# --keychain <path>
+#   Альтернативный keychain для поиска сертификата.
+#   Полезно в CI/CD: --keychain /tmp/ci.keychain
+#
+# --cert <cert-name>
+#   Встроить промежуточный сертификат в пакет (для цепочки доверия).
+#   Можно указывать несколько раз.
+#
+# --timestamp
+#   Доверенная временная метка Apple (Secure Timestamp).
+#   Автоматически включается для Developer ID.
+#   Обязательна: без неё подпись станет невалидной после истечения сертификата.
+#
+# --timestamp=none
+#   Явно отключить временную метку (для разработки/тестирования).
+#
+# ПРОЧЕЕ:
+#
+# --quiet
+#   Подавить stdout. Ошибки всё равно выводятся в stderr.
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# COMPONENT PLIST — конфигурация поведения бандлов
 # ═══════════════════════════════════════════════════════════════════════════════
 #
-# Component plist описывает поведение .app/.framework/.plugin бандлов при установке.
-# Для консольных утилит (просто бинарник) — не нужен.
-#
+# Нужен только для .app/.framework/.plugin (не для CLI-утилит).
 # Генерация шаблона:
 #   pkgbuild --analyze --root payload/ components.plist
 #
-# Ключевые параметры:
-#   RootRelativeBundlePath — путь к бандлу относительно root (обязателен)
-#   BundleIsRelocatable    — разрешить пользователю перемещать приложение (bool)
-#   BundleIsVersionChecked — не устанавливать если установлена более новая версия (bool)
-#   BundleHasStrictIdentifier — строгое совпадение Bundle ID (bool)
-#   BundleOverwriteAction  — поведение при перезаписи:
-#                             upgrade (только если новее), downgrade (только если старее),
-#                             newer (новее или одинаково), root (всегда перезаписывать)
+# Параметры:
+#   RootRelativeBundlePath  — путь к бандлу относительно root (обязателен)
+#   BundleIsRelocatable     — разрешить пользователю переместить приложение
+#   BundleIsVersionChecked  — не устанавливать если установлена более новая версия
+#   BundleHasStrictIdentifier — строгое совпадение Bundle ID
+#   BundleOverwriteAction   — поведение при перезаписи:
+#     upgrade   — только если новее текущей
+#     downgrade — только если старее текущей
+#     newer     — новее или одинаково
+#     root      — всегда перезаписывать
 #
-# Пример components.plist для .app:
+# Пример:
 # <?xml version="1.0" encoding="UTF-8"?>
 # <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
 #     "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -234,209 +280,249 @@ chmod 755 "${SCRIPTS_DIR}/postinstall"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# СБОРКА КОМПОНЕНТНОГО ПАКЕТА (pkgbuild)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-echo "Building component package..."
-
-pkgbuild \
-    \
-    --root "${PAYLOAD_DIR}" \
-    \
-    --identifier "${IDENTIFIER}" \
-    \
-    --version "${VERSION}" \
-    \
-    --install-location "/" \
-    \
-    --scripts "${SCRIPTS_DIR}" \
-    \
-    --ownership "recommended" \
-    \
-    --filter '\.DS_Store$' \
-    --filter '.*\.dSYM$' \
-    --filter '.*\.o$' \
-    --filter '.*__pycache__.*' \
-    \
-    "${COMPONENT_PKG}"
-
-# Описание флагов pkgbuild:
-#
-# --root <path>
-#   Корневая директория с файлами для установки.
-#   Структура директории соответствует итоговой структуре на диске.
-#
-# --component <path>
-#   Альтернатива --root для одиночного бандла (.app, .framework, .plugin).
-#   Используется когда нужно упаковать одно приложение с его bundle-структурой.
-#
-# --identifier <id>
-#   Уникальный идентификатор в обратном DNS-формате: com.company.product.pkg
-#   Стабилен между версиями (1.0, 2.0, 3.0 — один идентификатор).
-#   macOS использует его для: pkgutil --info, проверки установленных пакетов.
-#
-# --version <version>
-#   Версия пакета. Используется macOS для версионирования при обновлении.
-#
-# --install-location <path>
-#   Директория назначения. Обычно "/" для абсолютного layout payload.
-#   Или "/usr/local/bin" для простого layout с одним бинарником.
-#
-# --scripts <dir>
-#   Директория со скриптами preinstall и postinstall.
-#   Файлы должны быть исполняемыми (chmod 755).
-#
-# --component-plist <plist>
-#   XML plist для описания поведения бандлов (только для .app/.framework/.plugin).
-#   Генерируется командой: pkgbuild --analyze --root <root> output.plist
-#
-# --nopayload
-#   Создать пакет только со скриптами, без файлов.
-#   Полезно для настройки системы: создание symlink, настройка PATH и т.д.
-#
-# --filter <regex>
-#   Исключить файлы, соответствующие регулярному выражению.
-#   Можно указывать несколько раз. Применяется к относительному пути в payload.
-#
-# --ownership <mode>
-#   recommended     — системные пути → root:wheel, /Users → текущий пользователь.
-#                     Рекомендуется для большинства случаев.
-#   preserve        — копировать точные uid/gid с диска.
-#                     Проблема: uid/gid могут отличаться на разных машинах.
-#   preserve-other  — recommended для своих файлов, preserve для остальных.
-#
-# --sign <identity>
-#   Подписать пакет. Для дистрибуции: "Developer ID Installer: Name (TEAM_ID)"
-#   Требует наличия сертификата в keychain.
-#   ВАЖНО: всегда добавлять --timestamp при подписи!
-#
-# --keychain <path>
-#   Альтернативный keychain для поиска сертификата.
-#   Полезно в CI/CD: pkgbuild --keychain ci.keychain --sign "..."
-#
-# --timestamp
-#   Добавить временную метку Apple (Secure Timestamp).
-#   Обязательно при подписи — без неё подпись станет невалидной
-#   после истечения сертификата.
-#
-# --quiet
-#   Подавить вывод статуса (полезно в CI/CD для чистых логов).
-
-echo "Component package created: ${COMPONENT_PKG}"
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# ОПЦИОНАЛЬНО: СБОРКА ФИНАЛЬНОГО ДИСТРИБУТИВНОГО ПАКЕТА (productbuild)
+# PRODUCTBUILD — СОЗДАНИЕ ДИСТРИБУТИВНОГО ПАКЕТА
 # ═══════════════════════════════════════════════════════════════════════════════
 #
 # productbuild объединяет компонентные пакеты в финальный installer.pkg
-# с wizard-интерфейсом, лицензией, фоном и т.д.
-# Для консольных утилит обычно используется напрямую component.pkg.
+# с GUI-wizard: лицензия, readme, welcome-экран, выбор компонентов.
 #
-# Шаг 1: Синтезировать distribution.xml из компонентного пакета:
-#   productbuild --synthesize --package myapp-component.pkg distribution.xml
-#
-# Шаг 2 (опционально): Отредактировать distribution.xml (см. ниже)
-#
-# Шаг 3: Собрать финальный пакет:
-#   productbuild \
-#       --distribution distribution.xml \
-#       --resources resources/ \      # директория с фоном, лицензией, readme
-#       --package-path /tmp/ \        # где искать component.pkg
-#       --sign "Developer ID Installer: Name (TEAM_ID)" \
-#       --timestamp \
-#       installer.pkg
-#
-# Пример distribution.xml:
-# <?xml version="1.0" encoding="utf-8"?>
-# <installer-gui-script minSpecVersion="1">
-#     <title>MyApp</title>
-#
-#     <!-- Минимальная версия macOS -->
-#     <os-version type="minimum" value="11.0"/>
-#
-#     <!-- Фон инсталлятора -->
-#     <background file="background.png" alignment="bottomleft" scaling="none"/>
-#     <background-darkAqua file="background-dark.png" alignment="bottomleft" scaling="none"/>
-#
-#     <!-- Лицензионное соглашение (пользователь должен принять) -->
-#     <license file="LICENSE.txt" mime-type="text/plain"/>
-#
-#     <!-- README (показывается до установки) -->
-#     <readme file="README.txt"/>
-#
-#     <!-- Документация (показывается вместо README) -->
-#     <!-- <welcome file="Welcome.html" mime-type="text/html"/> -->
-#
-#     <!-- Пакеты -->
-#     <pkg-ref id="com.powertech.myapp.pkg">myapp-component.pkg</pkg-ref>
-#
-#     <!-- Выбор компонентов -->
-#     <choices-outline>
-#         <line choice="default"/>
-#     </choices-outline>
-#     <choice id="default" visible="false">
-#         <pkg-ref id="com.powertech.myapp.pkg"/>
-#     </choice>
-# </installer-gui-script>
+# Для CLI-утилит обычно достаточно компонентного пакета напрямую.
+# Дистрибутивный пакет нужен если требуется: UI wizard, несколько компонентов,
+# проверки совместимости, кастомный фон/лицензия.
 
-BUILD_DISTRIBUTION=false  # установить в true для сборки дистрибутивного пакета
+BUILD_DIST=false
 
-if [ "${BUILD_DISTRIBUTION}" = "true" ]; then
-    DIST_XML="/tmp/${APP_NAME}-distribution.xml"
-    RESOURCES_DIR="resources"
+if [ "${BUILD_DIST}" = "true" ]; then
 
-    # Сгенерировать distribution.xml
+    # ── Шаг 1: Синтезировать distribution.xml ─────────────────────────────
     productbuild \
         --synthesize \
         --package "${COMPONENT_PKG}" \
         "${DIST_XML}"
 
-    # Собрать финальный дистрибутивный пакет
+    # ── (Опционально) Отредактировать distribution.xml ────────────────────
+    # Добавить: заголовок, лицензию, минимальную версию ОС, фон и т.д.
+
+    # ── Шаг 2: Собрать финальный пакет ────────────────────────────────────
     productbuild \
         --distribution "${DIST_XML}" \
-        --resources "${RESOURCES_DIR}" \
+        --resources "resources/" \
         --package-path "$(dirname "${COMPONENT_PKG}")" \
-        "${PKG_OUTPUT}"
+        "${OUTPUT_PKG}"
 
-    echo "Distribution package created: ${PKG_OUTPUT}"
+    # ── Справочник всех флагов productbuild ───────────────────────────────
+    #
+    # РЕЖИМЫ РАБОТЫ:
+    #
+    # --distribution <dist-path>
+    #   Использовать distribution.xml для описания установки.
+    #
+    # --synthesize
+    #   Синтезировать distribution.xml из --package вместо создания пакета.
+    #   Используется как первый шаг для получения шаблона.
+    #
+    # ИСТОЧНИКИ СОДЕРЖИМОГО:
+    #
+    # --package <pkg-path> [install-path]
+    #   Добавить компонентный пакет. install-path переопределяет install-location.
+    #   Можно указывать несколько раз.
+    #
+    # --component <path> [install-path]
+    #   Добавить бандл с опциональным путём установки.
+    #
+    # --root <root-path> <install-path>
+    #   Добавить дерево директории (destination root от xcodebuild).
+    #
+    # --content <content-path>
+    #   Добавить содержимое директории в продукт-архив.
+    #
+    # --package-path <search-path>
+    #   Директория поиска компонентных пакетов (ссылаемых из distribution.xml).
+    #   Можно указывать несколько раз.
+    #
+    # РЕСУРСЫ:
+    #
+    # --resources <rsrc-dir>
+    #   Скопировать нелокализованные и локализованные ресурсы в архив.
+    #   Здесь лежат: welcome.html, readme.html, license.html, background.png
+    #   и их локализованные варианты в подпапках (en.lproj/, ru.lproj/ и т.д.)
+    #
+    # --scripts <scripts-path>
+    #   Добавить содержимое для system.run() JavaScript в distribution.
+    #
+    # --plugins <plugins-path>
+    #   Добавить содержимое для механизма плагинов macOS Installer.
+    #
+    # ИДЕНТИФИКАЦИЯ:
+    #
+    # --identifier <product-identifier>
+    #   Уникальный идентификатор продукта верхнего уровня.
+    #
+    # --version <product-version>
+    #   Версия продукта верхнего уровня.
+    #
+    # --product <requirements-plist>
+    #   Plist с предустановочными требованиями при синтезировании distribution.
+    #
+    # --ui <interface-type>
+    #   Выбор choices-outline если в distribution.xml их несколько.
+    #
+    # ПОДПИСЬ (те же флаги что у pkgbuild):
+    # --sign <identity>, --keychain <path>, --cert <name>
+    # --timestamp, --timestamp=none, --quiet
+
 else
-    # Для консольных утилит используем компонентный пакет напрямую
-    cp "${COMPONENT_PKG}" "${PKG_OUTPUT}"
-    echo "Component package copied to: ${PKG_OUTPUT}"
+    cp "${COMPONENT_PKG}" "${OUTPUT_PKG}"
 fi
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ОПЦИОНАЛЬНО: ПОДПИСЬ И НОТАРИЗАЦИЯ
+# DISTRIBUTION.XML — полный пример со всеми элементами
 # ═══════════════════════════════════════════════════════════════════════════════
 #
-# На macOS:
-#   pkgbuild --sign "Developer ID Installer: Name (TEAM_ID)" --timestamp ...
-#   xcrun notarytool submit installer.pkg --wait ...
-#   xcrun stapler staple installer.pkg
+# distribution.xml описывает GUI-wizard macOS Installer.
+# Создаётся вручную или синтезируется через: productbuild --synthesize
 #
-# На Linux/Windows (через rcodesign):
-#   # rcodesign sign --p12-file cert.p12 --p12-password-file pass.txt installer.pkg
-#   # rcodesign notary-submit --api-key-path key.json installer.pkg --wait --staple
+# Полный пример:
+# ─────────────────────────────────────────────────────────────────────────────
+# <?xml version="1.0" encoding="utf-8"?>
+# <installer-gui-script minSpecVersion="2">
+#     <!--
+#       minSpecVersion:
+#         1 — до macOS 10.6.6
+#         2 — macOS 10.6.6+ (рекомендуется)
+#     -->
+#
+#     <!-- Заголовок окна Installer -->
+#     <title>MyApp</title>
+#
+#     <!-- Экраны wizard (файлы из --resources директории) -->
+#     <!-- welcome: показывается перед выбором компонентов -->
+#     <welcome file="welcome.html" mime-type="text/html"/>
+#     <!-- readme: показывается перед лицензией -->
+#     <readme file="readme.rtf" mime-type="text/rtf"/>
+#     <!-- license: пользователь должен принять -->
+#     <license file="license.html" mime-type="text/html"/>
+#     <!-- conclusion: показывается после установки -->
+#     <conclusion file="conclusion.html" mime-type="text/html"/>
+#     <!-- uti: альтернатива mime-type, напр. public.rtf -->
+#
+#     <!-- Фон окна Installer -->
+#     <background
+#         file="background.png"
+#         mime-type="image/png"
+#         alignment="bottomleft"    <!-- center|left|right|top|bottom|topleft|topright|bottomleft|bottomright -->
+#         scaling="proportional"    <!-- tofit|none|proportional -->
+#     />
+#     <!-- Отдельный фон для тёмной темы macOS (те же атрибуты) -->
+#     <background-darkAqua file="background-dark.png" mime-type="image/png"
+#         alignment="bottomleft" scaling="proportional"/>
+#
+#     <!-- Минимальная версия macOS -->
+#     <!-- type: minimum или maximum -->
+#     <os-version type="minimum" value="11.0"/>
+#     <!-- Или более детально через allowed-os-versions: -->
+#     <!-- <allowed-os-versions>
+#              <os-version min="11.0" before="14.0"/>
+#          </allowed-os-versions> -->
+#
+#     <!-- Требования к RAM (macOS 10.6.6+) -->
+#     <ram min-gb="2"/>
+#
+#     <!-- JavaScript для проверок совместимости -->
+#     <script><![CDATA[
+#         function installationCheck() {
+#             // Вернуть true если можно устанавливать
+#             return true;
+#         }
+#         function volumeCheck() {
+#             return true;
+#         }
+#         // Доступны: system.version, system.sysctl(), installer и др.
+#     ]]></script>
+#
+#     <!-- Проверка хоста (вызывает installationCheck() или встроенные проверки) -->
+#     <installation-check script="installationCheck()"/>
+#
+#     <!-- Проверка тома назначения -->
+#     <volume-check script="volumeCheck()"/>
+#
+#     <!-- Требования к GPU (10.7+) -->
+#     <!-- <required-graphics description="OpenCL GPU required">
+#              <required-cl-device/>
+#          </required-graphics> -->
+#
+#     <!-- Домены установки -->
+#     <domains
+#         enable_anywhere="true"          <!-- разрешить установку в /Volumes/... -->
+#         enable_currentUserHome="false"  <!-- разрешить установку в ~/... -->
+#         enable_localSystem="true"       <!-- разрешить в / (по умолчанию) -->
+#     />
+#
+#     <!-- Идентификатор и версия продукта верхнего уровня -->
+#     <product id="com.powertech.myapp" version="1.2.3"/>
+#
+#     <!-- Опции установщика -->
+#     <options
+#         customize="allow"            <!-- allow|always|never — показывать ли экран кастомизации -->
+#         allow-external-scripts="no"  <!-- разрешить system.run() -->
+#         rootVolumeOnly="false"       <!-- только в корневой том -->
+#     />
+#
+#     <!-- Пакеты (ссылки на component .pkg файлы) -->
+#     <pkg-ref id="com.powertech.myapp.pkg"
+#              version="1.2.3"
+#              installKBytes="1024"
+#              onConclusion="None"       <!-- None|RequireLogout|RequireRestart|RequireShutdown -->
+#              auth="root">             <!-- root|none -->
+#         myapp-component.pkg
+#     </pkg-ref>
+#
+#     <!-- Иерархия выборов (что показывать на экране кастомизации) -->
+#     <choices-outline>
+#         <line choice="main"/>
+#     </choices-outline>
+#
+#     <choice id="main"
+#             title="MyApp"
+#             description="Installs MyApp"
+#             start_selected="true"      <!-- выбрано по умолчанию -->
+#             start_enabled="true"       <!-- можно изменить выбор -->
+#             start_visible="true"       <!-- показывать в списке -->
+#             selected="installationCheck()"  <!-- JS для динамического управления -->
+#             enabled="true"
+#             visible="true"
+#             customLocation="/usr/local">   <!-- разрешить пользователю выбрать путь -->
+#         <pkg-ref id="com.powertech.myapp.pkg"/>
+#     </choice>
+# </installer-gui-script>
 
-SIGN_PACKAGE=false  # установить в true для подписи
 
-if [ "${SIGN_PACKAGE}" = "true" ]; then
-    TEAM_ID="${APPLE_TEAM_ID:?APPLE_TEAM_ID not set}"
-    APPLE_ID="${APPLE_ID:?APPLE_ID not set}"
-    APP_PASSWORD="${APPLE_APP_PASSWORD:?APPLE_APP_PASSWORD not set}"
+# ═══════════════════════════════════════════════════════════════════════════════
+# ПОДПИСЬ И НОТАРИЗАЦИЯ
+# ═══════════════════════════════════════════════════════════════════════════════
+
+SIGN_PKG="${SIGN_PKG:-false}"
+
+if [ "${SIGN_PKG}" = "true" ]; then
+    TEAM_ID="${APPLE_TEAM_ID:?}"
+    APPLE_ID="${APPLE_ID:?}"
+    APP_PASSWORD="${APPLE_APP_PASSWORD:?}"
     CERT_NAME="Developer ID Installer: PowerTech Center (${TEAM_ID})"
+    SIGNED_PKG="${OUTPUT_PKG%.pkg}-signed.pkg"
 
-    SIGNED_PKG="${PKG_OUTPUT%.pkg}-signed.pkg"
-
-    # Подпись через productsign (для дистрибутивных пакетов)
-    # или через pkgbuild --sign (встроена в сборку)
+    # productsign — подпись готового пакета (дистрибутивного или компонентного)
     productsign \
         --sign "${CERT_NAME}" \
         --timestamp \
-        "${PKG_OUTPUT}" \
+        "${OUTPUT_PKG}" \
         "${SIGNED_PKG}"
+    # Флаги productsign:
+    #   --sign <identity>   — сертификат подписи
+    #   --keychain <path>   — альтернативный keychain
+    #   --cert <name>       — встроить промежуточный сертификат
+    #   --timestamp         — доверенная временная метка
+    #   --timestamp=none    — отключить временную метку
 
     # Нотаризация
     xcrun notarytool submit "${SIGNED_PKG}" \
@@ -446,30 +532,31 @@ if [ "${SIGN_PACKAGE}" = "true" ]; then
         --wait \
         --output-format json
 
-    # Staple — встраивание нотаризационного тикета в пакет
-    # После staple пакет можно установить без интернета
+    # Staple — встроить нотаризационный тикет в пакет
+    # После staple пакет устанавливается без интернета (Gatekeeper проверяет локально)
     xcrun stapler staple "${SIGNED_PKG}"
 
-    # Проверка
+    # Проверка подписи и нотаризации
     spctl -a -t install "${SIGNED_PKG}"
+    pkgutil --check-signature "${SIGNED_PKG}"
 
-    mv "${SIGNED_PKG}" "${PKG_OUTPUT}"
-    echo "Signed and notarized: ${PKG_OUTPUT}"
+    mv "${SIGNED_PKG}" "${OUTPUT_PKG}"
 fi
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ОЧИСТКА
+# ОЧИСТКА И ДИАГНОСТИКА
 # ═══════════════════════════════════════════════════════════════════════════════
 
 rm -rf "${PAYLOAD_DIR}" "${SCRIPTS_DIR}" "${COMPONENT_PKG}"
+[ -f "${DIST_XML}" ] && rm -f "${DIST_XML}"
 
-echo ""
-echo "Done! Package: ${PKG_OUTPUT}"
+echo "Done: ${OUTPUT_PKG}"
 echo ""
 echo "Diagnostic commands:"
-echo "  pkgutil --expand ${PKG_OUTPUT} /tmp/expanded/"
+echo "  pkgutil --expand ${OUTPUT_PKG} /tmp/expanded-pkg/"
 echo "  pkgutil --pkgs | grep ${APP_NAME}"
 echo "  pkgutil --info ${IDENTIFIER}"
 echo "  pkgutil --files ${IDENTIFIER}"
-echo "  sudo pkgutil --forget ${IDENTIFIER}  # для тестирования переустановки"
+echo "  sudo pkgutil --forget ${IDENTIFIER}"
+echo "  spctl -a -t install ${OUTPUT_PKG}"
