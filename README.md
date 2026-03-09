@@ -11,10 +11,10 @@ Crossler ships as **6 binaries** (Linux, macOS, Windows × x64/arm64). Each bina
 <table>
   <thead>
     <tr>
-      <th width="180">Format / capability</th>
-      <th width="240">Linux</th>
+      <th width="220">Format / capability</th>
+      <th width="180">Linux</th>
       <th width="160">macOS</th>
-      <th width="240">Windows</th>
+      <th width="180">Windows</th>
     </tr>
   </thead>
   <tbody>
