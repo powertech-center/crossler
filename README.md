@@ -8,16 +8,66 @@ Crossler reads a single config file and delegates package creation to the right 
 
 Crossler ships as **6 binaries** (Linux, macOS, Windows × x64/arm64). Each binary covers a different set of formats:
 
-| Format / capability | Linux | macOS | Windows |
-|---------------------|:-----:|:-----:|:-------:|
-| `.msi` | ✓ `wixl` | ✓ `wixl` | ✓ `wix` |
-| `.deb`, `.rpm`, `.apk`, `.pkg.tar.zst`, `.ipk` | ✓ `nfpm` | ✓ `nfpm` | ✓ `nfpm` |
-| `.tar.gz` | ✓ | ✓ | ✓ |
-| `.rb` (Homebrew) | ✓ | ✓ | ✓ |
-| `.pkg` (macOS installer) | ✓ `xar`+`bomutils` | ✓ `pkgbuild` | ✓ `xar`+`bomutils` |
-| `.dmg` (macOS disk image) | — | ✓ `hdiutil` | — |
-| Windows signing | ✓ `osslsigncode` | ✓ `osslsigncode` | ✓ `signtool` |
-| macOS signing | ✓ `rcodesign` | ✓ `codesign` `notarytool` | ✓ `rcodesign` |
+<table>
+  <thead>
+    <tr>
+      <th width="25%">Format / capability</th>
+      <th width="25%">Linux</th>
+      <th width="25%">macOS</th>
+      <th width="25%">Windows</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>.msi</code></td>
+      <td align="center">✓ <code>wixl</code></td>
+      <td align="center">✓ <code>wixl</code></td>
+      <td align="center">✓ <code>wix</code></td>
+    </tr>
+    <tr>
+      <td><code>.deb</code>, <code>.rpm</code>, <code>.apk</code>, <code>.pkg.tar.zst</code>, <code>.ipk</code></td>
+      <td align="center">✓ <code>nfpm</code></td>
+      <td align="center">✓ <code>nfpm</code></td>
+      <td align="center">✓ <code>nfpm</code></td>
+    </tr>
+    <tr>
+      <td><code>.tar.gz</code></td>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+    </tr>
+    <tr>
+      <td><code>.rb</code></td>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+    </tr>
+    <tr>
+      <td><code>.pkg</code></td>
+      <td align="center">✓ <code>xar</code>+<code>bomutils</code></td>
+      <td align="center">✓ <code>pkgbuild</code></td>
+      <td align="center">✓ <code>xar</code>+<code>bomutils</code></td>
+    </tr>
+    <tr>
+      <td><code>.dmg</code></td>
+      <td align="center">—</td>
+      <td align="center">✓ <code>hdiutil</code></td>
+      <td align="center">—</td>
+    </tr>
+    <tr>
+      <td>Windows signing</td>
+      <td align="center">✓ <code>osslsigncode</code></td>
+      <td align="center">✓ <code>osslsigncode</code></td>
+      <td align="center"><code>signtool</code></td>
+    </tr>
+    <tr>
+      <td>macOS signing</td>
+      <td align="center">✓ <code>rcodesign</code></td>
+      <td align="center">✓ <code>codesign</code> <code>notarytool</code></td>
+      <td align="center">✓ <code>rcodesign</code></td>
+    </tr>
+  </tbody>
+</table>
 
 The **Linux binary** is the primary one — it can build and sign packages for all platforms, including macOS signing via `rcodesign`. The **macOS binary** handles everything that requires native macOS tooling, including signing binaries before packaging into `tar.gz`, `.pkg`, or `.dmg`. The **Windows binary** covers MSI creation and signing via `signtool`.
 
