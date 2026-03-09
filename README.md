@@ -8,6 +8,67 @@ Crossler reads a single config file and delegates package creation to the right 
 
 Crossler ships as **6 binaries** (Linux, macOS, Windows × x64/arm64). Each binary covers a different set of formats:
 
+<table>
+  <thead>
+    <tr>
+      <th width="180">Format / capability</th>
+      <th width="240">Linux</th>
+      <th width="160">macOS</th>
+      <th width="240">Windows</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>.msi</code></td>
+      <td align="center">✓ <code>wixl</code></td>
+      <td align="center">✓ <code>wixl</code></td>
+      <td align="center">✓ <code>wix</code></td>
+    </tr>
+    <tr>
+      <td><code>.deb</code>, <code>.rpm</code>, <code>.apk</code>, <code>.pkg.tar.zst</code>, <code>.ipk</code></td>
+      <td align="center">✓ <code>nfpm</code></td>
+      <td align="center">✓ <code>nfpm</code></td>
+      <td align="center">✓ <code>nfpm</code></td>
+    </tr>
+    <tr>
+      <td><code>.tar.gz</code></td>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+    </tr>
+    <tr>
+      <td><code>.rb</code> (Homebrew)</td>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+    </tr>
+    <tr>
+      <td><code>.pkg</code> (macOS installer)</td>
+      <td align="center">✓ <code>xar</code>+<code>bomutils</code></td>
+      <td align="center">✓ <code>pkgbuild</code></td>
+      <td align="center">✓ <code>xar</code>+<code>bomutils</code></td>
+    </tr>
+    <tr>
+      <td><code>.dmg</code> (macOS disk image)</td>
+      <td align="center">—</td>
+      <td align="center">✓ <code>hdiutil</code></td>
+      <td align="center">—</td>
+    </tr>
+    <tr>
+      <td>Windows signing</td>
+      <td align="center">✓ <code>osslsigncode</code></td>
+      <td align="center">✓ <code>osslsigncode</code></td>
+      <td align="center"><code>signtool</code></td>
+    </tr>
+    <tr>
+      <td>macOS signing</td>
+      <td align="center">✓ <code>rcodesign</code></td>
+      <td align="center">✓ <code>codesign</code> <code>notarytool</code></td>
+      <td align="center">✓ <code>rcodesign</code></td>
+    </tr>
+  </tbody>
+</table>
+
 | Format / capability | Linux | macOS | Windows |
 |---------------------|:-----:|:-----:|:-------:|
 | `.msi` | ✓ `wixl` | ✓ `wixl` | ✓ `wix` |
