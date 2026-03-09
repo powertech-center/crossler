@@ -69,17 +69,6 @@ Crossler ships as **6 binaries** (Linux, macOS, Windows × x64/arm64). Each bina
   </tbody>
 </table>
 
-| Format / capability | Linux | macOS | Windows |
-|---------------------|:-----:|:-----:|:-------:|
-| `.msi` | ✓ `wixl` | ✓ `wixl` | ✓ `wix` |
-| `.deb`, `.rpm`, `.apk`, `.pkg.tar.zst`, `.ipk` | ✓ `nfpm` | ✓ `nfpm` | ✓ `nfpm` |
-| `.tar.gz` | ✓ | ✓ | ✓ |
-| `.rb` (Homebrew) | ✓ | ✓ | ✓ |
-| `.pkg` (macOS installer) | ✓ `xar`+`bomutils` | ✓ `pkgbuild` | ✓ `xar`+`bomutils` |
-| `.dmg` (macOS disk image) | — | ✓ `hdiutil` | — |
-| Windows signing | ✓ `osslsigncode` | ✓ `osslsigncode` | ✓ `signtool` |
-| macOS signing | ✓ `rcodesign` | ✓ `codesign` `notarytool` | ✓ `rcodesign` |
-
 The **Linux binary** is the primary one — it can build and sign packages for all platforms, including macOS signing via `rcodesign`. The **macOS binary** handles everything that requires native macOS tooling, including signing binaries before packaging into `tar.gz`, `.pkg`, or `.dmg`. The **Windows binary** covers MSI creation and signing via `signtool`.
 
 > **Note:** `nfpm` is a pure Go binary and works on all platforms — `.deb`, `.rpm`, and `.apk` packages can be built from Linux, macOS, or Windows. In practice, Linux is the typical host for building Linux packages.
