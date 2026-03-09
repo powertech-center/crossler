@@ -1,0 +1,539 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  installer.wxs — полный пример WiX-конфига для создания MSI через wixl
+
+  wixl (из пакета msitools) компилирует этот XML в .msi файл:
+    wixl -v -o dist/myapp-x64.msi -a x64 \
+         -D Version=1.2.3.0 \
+         -D Manufacturer="PowerTech Center" \
+         -D SourceDir=dist/windows-amd64 \
+         installer.wxs
+
+  Отличие от полного WiX Toolset:
+    wixl работает на Linux/macOS, не требует .NET
+    wixl НЕ поддерживает: UI-диалоги, сложные CustomActions, Burn Bootstrapper,
+    Merge Modules, WiX Extensions (IIS, SQL, .NET), MajorUpgrade
+
+  Переменные передаются через -D VAR=VAL из командной строки
+  (или определяются в файле через <?define VAR = "VAL" ?>)
+-->
+
+<!--
+  Переменные препроцессора — можно переопределить из CLI через -D
+  Синтаксис использования: $(var.ИМЯ_ПЕРЕМЕННОЙ)
+-->
+<?define ProductVersion = "1.0.0.0" ?>
+<?define Manufacturer = "PowerTech Center" ?>
+<?define ProductName = "MyApp" ?>
+<?define UpgradeCodeGuid = "12345678-1234-1234-1234-123456789ABC" ?>
+<?define SourceDir = "dist\windows-amd64" ?>
+<?define InstallDirName = "MyApp" ?>
+
+<!--
+  Условная компиляция — задаётся из CLI: wixl -D Platform=x64
+  <?if $(var.Platform) = "x64" ?>
+    ... 64-bit логика ...
+  <?else ?>
+    ... 32-bit логика ...
+  <?endif ?>
+-->
+
+<!--
+  Include-файл — вынос директорий/компонентов в отдельный файл
+  <?include "directories.wxi" ?>
+-->
+
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+
+  <!--
+    <Product> — корневой элемент установщика, описывает продукт в целом.
+
+    Id="*"          → GUID версии продукта, автогенерируется при каждой сборке.
+                       Это правильно: каждая версия должна иметь уникальный ProductCode.
+                       Можно задать явно, но тогда при каждом релизе нужно менять вручную.
+
+    Name            → Название, отображаемое в Add/Remove Programs и диалогах установщика.
+
+    Language="1033" → LCID языка: 1033 = English (US).
+                       Для других языков: 1049 = Russian, 1031 = German и т.д.
+
+    Version         → Формат Major.Minor.Build.Revision. Windows Installer сравнивает
+                       только первые три части: 1.2.3.0 и 1.2.3.99 считаются одинаковыми.
+
+    Manufacturer    → Производитель. Используется как корень пути в реестре.
+
+    UpgradeCode     → GUID линии продукта. НИКОГДА не меняется между версиями!
+                       Именно по этому GUID Windows Installer находит предыдущую версию
+                       для обновления. Изменение UpgradeCode = новый несвязанный продукт.
+  -->
+  <Product
+    Id="*"
+    Name="$(var.ProductName)"
+    Language="1033"
+    Version="$(var.ProductVersion)"
+    Manufacturer="$(var.Manufacturer)"
+    UpgradeCode="$(var.UpgradeCodeGuid)">
+
+    <!--
+      <Package> — метаданные самого MSI-файла (не продукта, а пакета).
+
+      InstallerVersion → Минимальная версия Windows Installer:
+                          200 = 2.0 (Windows XP+)  — подходит для большинства случаев
+                          300 = 3.0 (Windows XP SP2+)
+                          400 = 4.0 (Windows Vista+)
+                          500 = 5.0 (Windows 7+)
+
+      Compressed="yes" → Встроить все файлы прямо в MSI (один файл для дистрибуции).
+                          "no" → файлы лежат рядом с MSI в отдельном .cab архиве.
+
+      InstallScope     → "perMachine" — для всех пользователей (требует Admin права).
+                          "perUser"    — только для текущего пользователя.
+
+      Description      → Описание, видимое в свойствах MSI файла.
+
+      Platform         → "x86" или "x64". Можно также задать через wixl -a x64.
+                          Лучше задавать через CLI для поддержки обеих архитектур.
+    -->
+    <Package
+      InstallerVersion="500"
+      Compressed="yes"
+      InstallScope="perMachine"
+      Description="$(var.ProductName) Installer"
+      Manufacturer="$(var.Manufacturer)"
+    />
+
+    <!--
+      <MediaTemplate> — упрощённое управление CAB-архивами.
+      EmbedCab="yes" → встроить кабинет файлов прямо в MSI (наиболее удобно).
+
+      Альтернатива — явный <Media> для тонкого контроля:
+        <Media Id="1" Cabinet="files.cab" EmbedCab="yes" CompressionLevel="high" />
+      CompressionLevel: none, low, medium, high, mszip
+    -->
+    <MediaTemplate EmbedCab="yes" />
+
+    <!--
+      <Icon> — иконка продукта.
+      Id              → имя-идентификатор, используется в Property ниже.
+      SourceFile      → путь к .ico файлу на машине сборки.
+    -->
+    <Icon Id="ProductIcon" SourceFile="resources\app.ico" />
+
+    <!--
+      <Property> — именованные свойства установщика.
+
+      ARPPRODUCTICON  → задаёт иконку в списке "Установка и удаление программ" (ARP).
+      ARPHELPLINK     → ссылка "Поддержка" в ARP.
+      ARPURLINFOABOUT → ссылка "Дополнительные сведения" в ARP.
+      ARPCONTACT      → контактная информация в ARP.
+      ARPCOMMENTS     → комментарий в ARP.
+      WIXUI_INSTALLDIR → (только WiX UI) ID директории для диалога выбора пути.
+
+      Можно задавать пользовательские свойства для CustomActions:
+        <Property Id="MYAPP_CONFIG_DIR" Value="[CommonAppDataFolder]MyApp" />
+    -->
+    <Property Id="ARPPRODUCTICON"  Value="ProductIcon" />
+    <Property Id="ARPHELPLINK"     Value="https://github.com/powertech-center/myapp" />
+    <Property Id="ARPURLINFOABOUT" Value="https://powertech.center" />
+    <Property Id="ARPCONTACT"      Value="support@powertech.center" />
+    <Property Id="ARPCOMMENTS"     Value="$(var.ProductName) $(var.ProductVersion)" />
+
+    <!--
+      <Condition> — условия, проверяемые до установки.
+      Если условие НЕ выполнено → установка прерывается с сообщением Message.
+
+      VersionNT   → версия Windows: 501=XP, 600=Vista, 601=Win7, 602=Win8,
+                     1000=Win10 (и старше, т.к. NT build 10.0)
+      Intel64     → система 64-битная
+      Privileged  → запущено с правами администратора
+      REMOVE      → выполняется удаление
+      Installed   → продукт уже установлен
+    -->
+
+    <!-- Требовать Windows 7 или новее -->
+    <Condition Message="This application requires Windows 7 or later.">
+      <![CDATA[VersionNT >= 601]]>
+    </Condition>
+
+    <!-- Требовать права администратора -->
+    <Condition Message="You must be an administrator to install $(var.ProductName).">
+      <![CDATA[Privileged]]>
+    </Condition>
+
+    <!--
+      Структура директорий установки.
+
+      <Directory> — описывает дерево папок на целевой машине.
+
+      Предопределённые ID (не требуют атрибута Name):
+        TARGETDIR            → корень (обязателен как первый Directory)
+        ProgramFilesFolder   → C:\Program Files (x86 или x64 автоматически по архитектуре пакета)
+        ProgramFiles64Folder → C:\Program Files (явно x64, независимо от архитектуры)
+        CommonAppDataFolder  → C:\ProgramData
+        LocalAppDataFolder   → %LOCALAPPDATA% (C:\Users\NAME\AppData\Local)
+        AppDataFolder        → %APPDATA% (C:\Users\NAME\AppData\Roaming)
+        DesktopFolder        → Рабочий стол
+        ProgramMenuFolder    → C:\ProgramData\Microsoft\Windows\Start Menu\Programs
+        StartupFolder        → Автозагрузка
+        SystemFolder         → C:\Windows\System32
+        WindowsFolder        → C:\Windows
+        TempFolder           → %TEMP%
+        PersonalFolder       → Мои документы
+
+      Name → имя папки на диске (для не-предопределённых директорий)
+    -->
+    <Directory Id="TARGETDIR" Name="SourceDir">
+
+      <!-- Папка установки приложения в Program Files -->
+      <Directory Id="ProgramFiles64Folder">
+        <!-- INSTALLFOLDER — пользовательская директория назначения -->
+        <Directory Id="INSTALLFOLDER" Name="$(var.InstallDirName)" />
+      </Directory>
+
+      <!-- Рабочий стол (для ярлыков) -->
+      <Directory Id="DesktopFolder" />
+
+      <!-- Меню Пуск → подпапка приложения -->
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationMenuFolder" Name="$(var.ProductName)" />
+      </Directory>
+
+      <!-- ProgramData для данных приложения -->
+      <Directory Id="CommonAppDataFolder">
+        <Directory Id="AppDataDir" Name="$(var.InstallDirName)" />
+      </Directory>
+
+    </Directory>
+
+    <!--
+      <Feature> — логический набор компонентов, который пользователь может выбрать.
+      В wixl UI-диалоги не поддерживаются, но Feature всё равно нужен.
+
+      Id      → уникальный идентификатор
+      Title   → название для отображения в UI (если бы был UI)
+      Level   → 0 = не устанавливать, 1 = устанавливать по умолчанию, 2+ = опционально
+      Display → hidden (скрыт), collapse (свёрнут), expand (развёрнут)
+
+      Вложенные Feature создают иерархию опций установки.
+    -->
+    <Feature Id="ProductFeature" Title="$(var.ProductName)" Level="1" Display="expand">
+      <!-- Ссылка на группу компонентов из Fragment (или DirectoryRef ниже) -->
+      <ComponentRef Id="MainBinary" />
+      <ComponentRef Id="ConfigFile" />
+      <ComponentRef Id="RegistryEntries" />
+
+      <!-- Опциональная фича: ярлыки -->
+      <Feature Id="Shortcuts" Title="Desktop and Start Menu Shortcuts" Level="1">
+        <ComponentRef Id="DesktopShortcutComp" />
+        <ComponentRef Id="StartMenuShortcutComp" />
+      </Feature>
+
+      <!-- Опциональная фича: данные приложения в ProgramData -->
+      <Feature Id="AppData" Title="Application Data" Level="1">
+        <ComponentRef Id="AppDataDirComp" />
+      </Feature>
+    </Feature>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         КОМПОНЕНТЫ
+         ══════════════════════════════════════════════════════════════════════
+
+         <Component> — атомарная единица установки.
+         Windows Installer отслеживает каждый компонент по GUID.
+         Либо компонент установлен полностью, либо не установлен вовсе.
+
+         Id     → уникальный идентификатор (не GUID, просто строка)
+         Guid   → GUID для отслеживания состояния компонента.
+                   ПРАВИЛО: GUID стабилен пока содержимое не изменилось.
+                   При изменении файлов компонента → создать новый GUID.
+                   Нельзя использовать один GUID в двух разных продуктах.
+                   Можно использовать uuidgen для генерации: uuidgen | tr a-z A-Z
+         Win64  → "yes" для 64-битных компонентов (влияет на раздел реестра)
+         Directory → ID директории установки (если отличается от родительского DirectoryRef)
+    -->
+
+    <!-- ── Основной бинарник ──────────────────────────────────────────────── -->
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="MainBinary"
+                 Guid="AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA"
+                 Win64="yes">
+        <!--
+          <File> — файл для установки.
+
+          Id         → идентификатор (уникален в пределах пакета)
+          Source     → путь к файлу на машине сборки (от CWD или от директории .wxs)
+          Name       → имя на целевой машине (если отличается от Source)
+          KeyPath    → "yes" — этот файл является ключом компонента.
+                        Строго один KeyPath на Component!
+                        Windows Installer проверяет наличие KeyPath для определения
+                        статуса установленности компонента.
+          Vital      → "yes" — прервать установку при ошибке копирования файла.
+          Compressed → "yes"/"no" — переопределить сжатие для этого файла.
+          ReadOnly   → "yes" — установить атрибут только-чтение.
+          Hidden     → "yes" — скрытый файл.
+          System     → "yes" — системный файл.
+        -->
+        <File
+          Id="MainExe"
+          Source="$(var.SourceDir)\myapp.exe"
+          Name="myapp.exe"
+          KeyPath="yes"
+          Vital="yes"
+        />
+
+        <!-- Дополнительные файлы в той же директории и том же Component -->
+        <File
+          Id="LicenseFile"
+          Source="LICENSE.txt"
+          Name="LICENSE.txt"
+          Vital="no"
+        />
+      </Component>
+
+      <!-- ── Конфигурационный файл ─────────────────────────────────────────── -->
+      <Component Id="ConfigFile"
+                 Guid="BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB"
+                 Win64="yes">
+        <File
+          Id="DefaultConfig"
+          Source="config\default.yaml"
+          Name="config.yaml"
+          KeyPath="yes"
+        />
+      </Component>
+    </DirectoryRef>
+
+    <!-- ── Записи в реестр ────────────────────────────────────────────────── -->
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="RegistryEntries"
+                 Guid="CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC"
+                 Win64="yes">
+        <!--
+          <RegistryKey> — группа записей под одним ключом реестра.
+
+          Root    → HKLM = HKEY_LOCAL_MACHINE
+                     HKCU = HKEY_CURRENT_USER
+                     HKCR = HKEY_CLASSES_ROOT
+                     HKMU = HKCU для perUser-установок, HKLM для perMachine
+
+          Action  → createAndRemoveOnUninstall — создать при установке,
+                     удалить при удалении (вместе с дочерними ключами если пусты)
+        -->
+        <RegistryKey Root="HKLM"
+                     Key="Software\PowerTech\MyApp"
+                     Action="createAndRemoveOnUninstall">
+          <!--
+            <RegistryValue> — одна запись в реестре.
+
+            Name  → имя значения (пусто = значение по умолчанию "(Default)")
+            Value → значение
+            Type  → string      = REG_SZ
+                     integer    = REG_DWORD
+                     binary     = REG_BINARY
+                     expandable = REG_EXPAND_SZ (разворачивает %ENV_VAR%)
+                     multiString = REG_MULTI_SZ
+
+            KeyPath → "yes" — эта запись является ключом компонента
+                       (если нет File с KeyPath, используем RegistryValue)
+          -->
+          <RegistryValue Name="InstallPath" Value="[INSTALLFOLDER]"
+                         Type="string" KeyPath="yes" />
+          <RegistryValue Name="Version"     Value="$(var.ProductVersion)"
+                         Type="string" />
+          <RegistryValue Name="Manufacturer" Value="$(var.Manufacturer)"
+                         Type="string" />
+          <!-- REG_EXPAND_SZ — значение с переменными окружения -->
+          <RegistryValue Name="DataPath"
+                         Value="%PROGRAMDATA%\$(var.InstallDirName)"
+                         Type="expandable" />
+        </RegistryKey>
+
+        <!-- Регистрация в PATH через Environment -->
+        <!--
+          <Environment> — управление переменными окружения.
+
+          Id     → идентификатор
+          Name   → имя переменной окружения
+          Value  → значение для добавления
+          Action → set (задать), remove (удалить), append (добавить в конец)
+          Part   → all (вся переменная), first (начало), last (конец)
+          System → "yes" = системная переменная, "no" = пользовательская
+          Permanent → "yes" = не удалять при удалении пакета
+        -->
+        <Environment
+          Id="AddToPath"
+          Name="PATH"
+          Value="[INSTALLFOLDER]"
+          Action="set"
+          Part="last"
+          System="yes"
+          Permanent="no"
+        />
+      </Component>
+    </DirectoryRef>
+
+    <!-- ── Ярлык на рабочем столе ────────────────────────────────────────── -->
+    <DirectoryRef Id="DesktopFolder">
+      <Component Id="DesktopShortcutComp"
+                 Guid="DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDDDD">
+        <!--
+          <Shortcut> — создать ярлык.
+
+          Id              → идентификатор
+          Directory       → директория где создать ярлык (DesktopFolder, ProgramMenuFolder и т.д.)
+          Name            → имя ярлыка (без .lnk)
+          Target          → цель ярлыка. Квадратные скобки — ссылка на директорию из Directory:
+                             [INSTALLFOLDER] → раскроется в реальный путь при установке.
+          Arguments       → аргументы командной строки
+          Description     → подсказка при наведении
+          WorkingDirectory → рабочая директория при запуске
+          Icon            → ID иконки из <Icon>
+          IconIndex       → индекс иконки в файле (0 = первая)
+        -->
+        <Shortcut
+          Id="DesktopShortcut"
+          Directory="DesktopFolder"
+          Name="$(var.ProductName)"
+          Target="[INSTALLFOLDER]myapp.exe"
+          Arguments=""
+          Description="Launch $(var.ProductName)"
+          WorkingDirectory="INSTALLFOLDER"
+          Icon="ProductIcon"
+          IconIndex="0"
+        />
+        <!--
+          Ярлыки ОБЯЗАТЕЛЬНО требуют KeyPath в том же Component.
+          Без KeyPath Windows Installer не может отслеживать компонент.
+          Стандартная практика — RegistryValue как KeyPath для компонентов с ярлыками.
+        -->
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\PowerTech\MyApp"
+          Name="DesktopShortcut"
+          Value="1"
+          Type="integer"
+          KeyPath="yes"
+        />
+      </Component>
+    </DirectoryRef>
+
+    <!-- ── Ярлык в меню Пуск ─────────────────────────────────────────────── -->
+    <DirectoryRef Id="ApplicationMenuFolder">
+      <Component Id="StartMenuShortcutComp"
+                 Guid="EEEEEEEE-EEEE-EEEE-EEEE-EEEEEEEEEEEE">
+        <Shortcut
+          Id="StartMenuShortcut"
+          Directory="ApplicationMenuFolder"
+          Name="$(var.ProductName)"
+          Target="[INSTALLFOLDER]myapp.exe"
+          WorkingDirectory="INSTALLFOLDER"
+          Icon="ProductIcon"
+          IconIndex="0"
+        />
+        <!--
+          <RemoveFolder> — удалить папку при удалении пакета.
+          On="uninstall" — только при удалении.
+          Обязателен для подпапок меню Пуск — иначе пустая папка остаётся на диске.
+        -->
+        <RemoveFolder Id="RemoveApplicationMenuFolder"
+                      Directory="ApplicationMenuFolder"
+                      On="uninstall" />
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\PowerTech\MyApp"
+          Name="StartMenuShortcut"
+          Value="1"
+          Type="integer"
+          KeyPath="yes"
+        />
+      </Component>
+    </DirectoryRef>
+
+    <!-- ── Директория данных в ProgramData ───────────────────────────────── -->
+    <DirectoryRef Id="AppDataDir">
+      <Component Id="AppDataDirComp"
+                 Guid="FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF">
+        <!--
+          <CreateFolder> — создать директорию при установке, удалить при удалении.
+          Используется когда Component содержит только директорию, без файлов.
+        -->
+        <CreateFolder />
+        <RegistryValue
+          Root="HKLM"
+          Key="Software\PowerTech\MyApp"
+          Name="DataDir"
+          Value="[AppDataDir]"
+          Type="string"
+          KeyPath="yes"
+        />
+      </Component>
+    </DirectoryRef>
+
+    <!--
+      <CustomAction> — произвольное действие во время установки.
+      wixl поддерживает только EXE-based CustomActions (запуск внешних программ).
+      DLL-based, .NET-based и другие типы не поддерживаются.
+
+      Id          → идентификатор
+      Directory   → рабочая директория для ExeCommand
+      ExeCommand  → команда для выполнения. Квадратные скобки раскрываются в пути.
+      Return      → check (проверить код возврата, по умолчанию)
+                    ignore (игнорировать ошибки)
+                    asyncNoWait (запустить асинхронно, не ждать завершения)
+                    asyncWait (запустить асинхронно, ждать при завершении установки)
+      Execute     → immediate (немедленно, без rollback)
+                    deferred (в транзакции с поддержкой rollback)
+                    rollback (при откате транзакции)
+                    commit (при успешной фиксации транзакции)
+      Impersonate → "no" — выполнять как SYSTEM (только для deferred)
+    -->
+    <CustomAction
+      Id="LaunchAfterInstall"
+      Directory="INSTALLFOLDER"
+      ExeCommand="[INSTALLFOLDER]myapp.exe --version"
+      Return="asyncNoWait"
+      Execute="immediate"
+    />
+
+    <!--
+      <InstallExecuteSequence> — порядок действий при установке.
+      Вставляет CustomAction в определённую точку последовательности.
+
+      After/Before → название стандартного действия:
+        InstallInitialize, InstallFiles, InstallFinalize, WriteRegistryValues,
+        CreateShortcuts, RemoveShortcuts, RegisterProduct и т.д.
+
+      Условие внутри тега — Guard condition:
+        NOT Installed → только при первой установке (не при обновлении/удалении)
+        REMOVE        → только при удалении
+        REINSTALL     → только при переустановке
+    -->
+    <InstallExecuteSequence>
+      <Custom Action="LaunchAfterInstall" After="InstallFinalize">
+        NOT Installed AND NOT REMOVE
+      </Custom>
+    </InstallExecuteSequence>
+
+  </Product>
+
+  <!--
+    <Fragment> — переиспользуемый фрагмент, может быть в отдельном .wxs файле.
+    Позволяет разбить большой installer на логические части.
+    Компилируется вместе с Product: wixl product.wxs fragment.wxs
+
+    <ComponentGroup> — именованная группа компонентов для удобства.
+    Ссылка: <ComponentGroupRef Id="ИМЯ" /> в секции Feature.
+  -->
+  <Fragment>
+    <ComponentGroup Id="ExtraFiles" Directory="INSTALLFOLDER">
+      <Component Id="ReadmeFile"
+                 Guid="11111111-1111-1111-1111-111111111111">
+        <File Id="ReadmeDoc"
+              Source="README.txt"
+              Name="README.txt"
+              KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+</Wix>
