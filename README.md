@@ -11,10 +11,10 @@ Crossler ships as **6 binaries** (Linux, macOS, Windows × x64/arm64). Each bina
 <table>
   <thead>
     <tr>
-      <th width="30%">Format / capability</th>
-      <th width="24%">Linux</th>
-      <th width="22%">macOS</th>
-      <th width="24%">Windows</th>
+      <th width="25%">Format / capability</th>
+      <th width="25%">Linux</th>
+      <th width="25%">macOS</th>
+      <th width="25%">Windows</th>
     </tr>
   </thead>
   <tbody>
@@ -37,19 +37,19 @@ Crossler ships as **6 binaries** (Linux, macOS, Windows × x64/arm64). Each bina
       <td align="center">✓</td>
     </tr>
     <tr>
-      <td><code>.rb</code> (Homebrew)</td>
+      <td><code>.rb</code></td>
       <td align="center">✓</td>
       <td align="center">✓</td>
       <td align="center">✓</td>
     </tr>
     <tr>
-      <td><code>.pkg</code> (macOS installer)</td>
+      <td><code>.pkg</code></td>
       <td align="center">✓ <code>xar</code>+<code>bomutils</code></td>
       <td align="center">✓ <code>pkgbuild</code></td>
       <td align="center">✓ <code>xar</code>+<code>bomutils</code></td>
     </tr>
     <tr>
-      <td><code>.dmg</code> (macOS disk image)</td>
+      <td><code>.dmg</code></td>
       <td align="center">—</td>
       <td align="center">✓ <code>hdiutil</code></td>
       <td align="center">—</td>
