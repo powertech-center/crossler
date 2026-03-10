@@ -38,6 +38,8 @@
 | `slug` | string | `name` → lowercase + спецсимволы → `-` | Базовое имя для файлов пакетов; валидируется при ручном вводе | nfpm: имя пакета в метаданных, имя выходного файла |
 | `version` | string | `"0.0.0"` | SemVer-строка; маппится на нужный формат при генерации | nfpm: `version`, wixl: `Product/@Version`, pkgbuild: `--version` |
 | `description` | string | `"{name} installation package v{version}"` | Краткое описание пакета (одна строка) | nfpm: `description`, wixl: `Package/@Description` → `ARPCOMMENTS`, nfpm RPM: `Summary` + `%description` |
+| `company` | string | `""` | Название компании-разработчика; обязательно для `.msi` (ошибка если пусто) | nfpm RPM: `Vendor`, wixl: `Product/@Manufacturer` |
+| `maintainer` | string | `""` | Контакт для обратной связи, формат `"Name <email>"`; обязательно для `.deb`, `.apk` (ошибка если пусто) | nfpm: `maintainer` |
 
 ## Сборка
 
