@@ -63,7 +63,7 @@ Crossler ships as **6 binaries** (Linux, macOS, Windows × x64/arm64). Each bina
     <tr>
       <td>macOS signing</td>
       <td align="center">✓ <code>rcodesign</code></td>
-      <td align="center">✓ <code>codesign</code> <code>notarytool</code></td>
+      <td align="center">✓ <code>codesign</code>+<code>notarytool</code></td>
       <td align="center">✓ <code>rcodesign</code></td>
     </tr>
   </tbody>
