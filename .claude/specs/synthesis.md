@@ -41,6 +41,7 @@
 | `company` | string | `""` | Название компании-разработчика; обязательно для `.msi` (ошибка если пусто) | nfpm RPM: `Vendor`, wixl: `Product/@Manufacturer` |
 | `maintainer` | string | `""` | Контакт для обратной связи, формат `"Name <email>"`; обязательно для `.deb`, `.apk` (ошибка если пусто) | nfpm: `maintainer` |
 | `license` | string | `"Proprietary"` | Лицензия ПО; если файл `LICENSE` отсутствует — попытка генерации по шаблону (детали TBD) | nfpm: `license` |
+| `homepage` | string | `""` | URL сайта проекта | nfpm: `homepage` |
 
 ## Сборка
 
