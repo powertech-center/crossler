@@ -100,13 +100,43 @@ share = true
 |--------|------------------------------------------|--------|-------------------|
 | `bin` | `/usr/bin/` | `INSTALLDIR\bin\` | `bin/` |
 | `lib` | `/usr/lib/` | `INSTALLDIR\lib\` | `lib/` |
-| `share` | `/usr/share/{slug}/` | `INSTALLDIR\share\` | `share/` |
+| `share` | см. правило ниже | `INSTALLDIR\share\` | `share/` |
 | `etc` | `/etc/{slug}/` | `INSTALLDIR\etc\` | `etc/` |
 | `var` | `/var/lib/{slug}/` | `INSTALLDIR\var\` | `var/` |
 
 ### Поддерживаемые группы
 
 `bin`, `lib`, `share`, `etc`, `var` — основные. Список может быть расширен по мере необходимости.
+
+### Правило маппинга для группы `share` (Linux/macOS пакеты)
+
+Путь внутри группы `share` анализируется по префиксу:
+
+- Если префикс совпадает с одним из стандартизированных подпутей → файл кладётся в `/usr/share/{подпуть}` напрямую.
+- Иначе (fallback) → файл кладётся в `/usr/share/{slug}/{подпуть}`.
+
+**Стандартизированные префиксы:**
+
+| Префикс | Целевой путь | Назначение |
+|---------|-------------|------------|
+| `applications/` | `/usr/share/applications/` | `.desktop` файлы (ярлык в меню DE) |
+| `icons/` | `/usr/share/icons/` | иконки приложения (hicolor и др.) |
+| `pixmaps/` | `/usr/share/pixmaps/` | legacy иконки |
+| `man/` | `/usr/share/man/` | man-страницы |
+| `locale/` | `/usr/share/locale/` | переводы (gettext) |
+| `bash-completion/` | `/usr/share/bash-completion/` | bash autocompletion |
+| `zsh/` | `/usr/share/zsh/` | zsh autocompletion |
+| `dbus-1/` | `/usr/share/dbus-1/` | D-Bus сервисы |
+
+**Примеры:**
+
+```
+share/"applications/myapp.desktop"         → /usr/share/applications/myapp.desktop
+share/"icons/hicolor/48x48/apps/myapp.png" → /usr/share/icons/hicolor/48x48/apps/myapp.png
+share/"man/man1/myapp.1"                   → /usr/share/man/man1/myapp.1
+share/"templates/template.xls"             → /usr/share/myapp/templates/template.xls  (fallback)
+share/"sounds/notify.wav"                  → /usr/share/myapp/sounds/notify.wav        (fallback)
+```
 
 ## Переменные шаблонизатора
 
