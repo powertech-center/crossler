@@ -160,7 +160,7 @@ format_overrides:
 
 **nfpm** поддерживает: `depends`, `provides`, `recommends`, `suggests`, `conflicts`, `replaces`. Синтаксис для разных форматов разный (deb: `bash (>= 4.0)`, rpm: `bash >= 4.0`, apk: `bash>=4.0`). nfpm нормализует базовую форму автоматически.
 
-**Crossler** (текущий черновик в `toml-example.toml`) предлагает ту же модель: `depends`, `recommends`, `suggests`, `conflicts`, `replaces`, `provides`. Это правильно.
+**Crossler** предлагает ту же модель: `depends`, `recommends`, `suggests`, `conflicts`, `replaces`, `provides`. Это правильно.
 
 **Вывод:** полный набор полей зависимостей из nfpm необходим. Crossler должен нормализовать синтаксис: принимать нейтральную форму `bash >= 4.0` и генерировать правильный синтаксис для каждого формата. Переопределения с форматным синтаксисом через `platforms.linux.formats.deb.depends` — как escape-люк.
 
