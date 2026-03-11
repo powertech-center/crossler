@@ -42,7 +42,7 @@
 | `description` | string | `"{name} installation package v{version}"` | Краткое описание пакета (одна строка) | nfpm: `description`, wixl: `Package/@Description` → `ARPCOMMENTS`, nfpm RPM: `Summary` + `%description` |
 | `company` | string | `""` | Название компании-разработчика; обязательно для `.msi` (ошибка если пусто) | nfpm RPM: `Vendor`, wixl: `Product/@Manufacturer` |
 | `maintainer` | string | `""` | Контакт для обратной связи, формат `"Name <email>"`; обязательно для `.deb`, `.apk` (ошибка если пусто) | nfpm: `maintainer` |
-| `license` | string | `"Proprietary"` | Лицензия ПО; если файл `LICENSE` отсутствует — попытка генерации по шаблону (детали TBD) | nfpm: `license` |
+| `license` | string | `"Proprietary"` | Лицензия ПО. Значение интерпретируется так: (1) если это путь к существующему файлу относительно `input` — используется как файл лицензии напрямую; (2) если в `input` есть файл `LICENSE`, `LICENSE.txt` или `LICENSE.md` — используется он; (3) иначе — Crossler генерирует файл лицензии по строковому значению (логика генерации TBD). Итоговый файл лицензии кладётся в нужное место каждым бэкендом | nfpm: `license`, nfpm deb: `/usr/share/doc/{slug}/copyright`, nfpm rpm: `%license` |
 | `homepage` | string | `""` | URL сайта проекта | nfpm: `homepage` |
 
 ## Сборка
