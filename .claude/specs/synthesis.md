@@ -99,14 +99,17 @@ share = true
 | Группа | `.deb` / `.rpm` / `.apk` / `.pkg` (macOS) | `.msi` | `tar.gz` / `.dmg` |
 |--------|------------------------------------------|--------|-------------------|
 | `bin` | `/usr/bin/` | `INSTALLDIR\bin\` | `bin/` |
+| `sbin` | `/usr/sbin/` | `INSTALLDIR\sbin\` | `sbin/` |
 | `lib` | `/usr/lib/` | `INSTALLDIR\lib\` | `lib/` |
+| `libexec` | `/usr/libexec/{slug}/` | `INSTALLDIR\libexec\` | `libexec/` |
+| `include` | `/usr/include/{slug}/` | `INSTALLDIR\include\` | `include/` |
 | `share` | см. правило ниже | `INSTALLDIR\share\` | `share/` |
 | `etc` | `/etc/{slug}/` | `INSTALLDIR\etc\` | `etc/` |
 | `var` | `/var/lib/{slug}/` | `INSTALLDIR\var\` | `var/` |
 
 ### Поддерживаемые группы
 
-`bin`, `lib`, `share`, `etc`, `var` — основные. Список может быть расширен по мере необходимости.
+`bin`, `sbin`, `lib`, `libexec`, `include`, `share`, `etc`, `var`.
 
 ### Правило маппинга для группы `share` (Linux/macOS пакеты)
 
