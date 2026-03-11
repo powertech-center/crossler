@@ -98,7 +98,7 @@ share = true
 
 | Группа | `.deb` / `.rpm` / `.apk` / `.pkg` (macOS) | `.msi` | `tar.gz` / `.dmg` |
 |--------|------------------------------------------|--------|-------------------|
-| `bin` | `/usr/bin/` | `INSTALLDIR\` | `bin/` |
+| `bin` | `/usr/bin/` | `INSTALLDIR\bin\` | `bin/` |
 | `lib` | `/usr/lib/` | `INSTALLDIR\lib\` | `lib/` |
 | `share` | `/usr/share/{slug}/` | `INSTALLDIR\share\` | `share/` |
 | `etc` | `/etc/{slug}/` | `INSTALLDIR\etc\` | `etc/` |
