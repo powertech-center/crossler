@@ -54,7 +54,7 @@
 | `os` | string/array | хостовая ОС | Значения: `linux`, `macos`, `windows` | crossler only: определяет набор запускаемых бэкендов |
 | `arch` | string/array | хостовая архитектура | Значения: `x64`, `arm64` | nfpm: маппинг архитектуры по формату, wixl/wix: Platform |
 | `formats` | string/array | `"tar.gz"` | Форматы выходных пакетов | crossler only: определяет набор запускаемых бэкендов |
-| `input` | string | `{current-dir}` | Базовая директория для поиска файлов | все бэкенды: base path для разрешения относительных путей в `files` |
+| `input` | string | `{current-dir}` | Базовая директория для поиска файлов | все бэкенды: base path для разрешения относительных путей в файловых группах |
 | `output` | string | `"{current-dir}/{config-name}/{slug}-{version}-{os}-{arch}.{format}"` | Полный путь выходного файла пакета, включая имя | все бэкенды: выходной файл |
 | `temp` | string | `"{config-dir}/{config-name}.temp"` | Рабочая директория для временных файлов (конфиги бэкендов, сгенерированные файлы). Поддерживает `{tmp}` для системной temp-директории. Пересоздаётся при каждом запуске (старое содержимое удаляется). Удаляется после успешного завершения; при ошибке сохраняется для диагностики. | crossler only |
 
@@ -140,6 +140,44 @@ share/"icons/hicolor/48x48/apps/myapp.png" → /usr/share/icons/hicolor/48x48/ap
 share/"man/man1/myapp.1"                   → /usr/share/man/man1/myapp.1
 share/"templates/template.xls"             → /usr/share/myapp/templates/template.xls  (fallback)
 share/"sounds/notify.wav"                  → /usr/share/myapp/sounds/notify.wav        (fallback)
+```
+
+## Подписывание
+
+Параметры подписи — обычные параметры конфига, задаются в таргет-секциях (`[windows]`, `[macos]`). Crossler автоматически выбирает инструмент по хосту: на Linux/macOS для Authenticode — `osslsigncode`, на Windows — `signtool`; для Apple — `rcodesign` на Linux/Windows, `codesign`+`notarytool` на macOS. Порядок подписи управляется Crossler автоматически: бинарники подписываются до упаковки, пакеты (`.msi`, `.pkg`, `.dmg`) — после.
+
+Подпись опциональна: если параметры не заданы — пакет собирается без подписи.
+
+### Общие параметры (Windows и macOS)
+
+| Параметр | Тип | Дефолт | Комментарий | Маппинг в бэкенды |
+|----------|-----|--------|-------------|-------------------|
+| `certificate` | string | — | Путь к файлу сертификата (PFX для Windows, P12 для macOS) | osslsigncode: `-pkcs12`, signtool: `/f`, rcodesign/codesign: `--p12-file` |
+| `password` | string | `""` | Пароль к файлу сертификата | osslsigncode: `-pass`, signtool: `/p`, rcodesign: `--p12-password`, codesign: через keychain |
+
+### Параметры Windows (Authenticode)
+
+| Параметр | Тип | Дефолт | Комментарий | Маппинг в бэкенды |
+|----------|-----|--------|-------------|-------------------|
+| `timeserver` | string | `"http://timestamp.digicert.com"` | TSA-сервер RFC 3161 для штампа времени; без штампа подпись теряет силу после истечения сертификата | osslsigncode: `-ts`, signtool: `/tr` |
+
+`description` и `url` берутся автоматически из параметров проекта: `description` — из `name` и `company`, `url` — из `homepage`.
+
+### Параметры macOS (Apple Code Signing)
+
+| Параметр | Тип | Дефолт | Комментарий | Маппинг в бэкенды |
+|----------|-----|--------|-------------|-------------------|
+| `notary` | string или object | — | Нотаризация Apple. Строка — путь к JSON-файлу с App Store Connect API Key. Объект — поля `id` (key ID), `issuer` (issuer UUID), `key` (путь к `.p8`). Наличие параметра = нотаризировать. | rcodesign: `--api-key-file` / отдельные флаги, notarytool: `--key-id`, `--issuer`, `--key` |
+| `entitlements` | string | — | Путь к `.plist` файлу с entitlements (опционально, для GUI-приложений) | codesign: `--entitlements`, rcodesign: `--entitlements-xml-path` |
+
+Hardened Runtime включается автоматически при подписи macOS (обязателен для нотаризации).
+
+### CLI-примеры для подписи
+
+```
+crossler packages.toml windows.certificate=codesign.pfx windows.password=$WIN_PASS
+crossler packages.toml macos.notary=api-key.json
+crossler packages.toml macos.notary.id=$KEY_ID macos.notary.issuer=$ISSUER macos.notary.key=private.p8
 ```
 
 ## Переменные шаблонизатора
