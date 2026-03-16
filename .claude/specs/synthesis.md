@@ -180,6 +180,10 @@ crossler packages.toml macos.notary=api-key.json
 crossler packages.toml macos.notary.id=$KEY_ID macos.notary.issuer=$ISSUER macos.notary.key=private.p8
 ```
 
+## Интеграция
+
+*(раздел в проработке)*
+
 ## Переменные шаблонизатора
 
 Используются в строковых параметрах (`output` и др.) в виде `{name}`.
