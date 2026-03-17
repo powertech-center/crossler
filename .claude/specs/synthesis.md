@@ -53,10 +53,26 @@
 |----------|-----|--------|-------------|-------------------|
 | `os` | string/array | хостовая ОС | Значения: `linux`, `macos`, `windows` | crossler only: определяет набор запускаемых бэкендов |
 | `arch` | string/array | хостовая архитектура | Значения: `x64`, `arm64` | nfpm: маппинг архитектуры по формату, wixl/wix: Platform |
-| `formats` | string/array | `"tar.gz"` | Форматы выходных пакетов | crossler only: определяет набор запускаемых бэкендов |
+| `formats` | string/array | `"tar.gz"` | Форматы выходных пакетов (см. таблицу ниже) | crossler only: определяет набор запускаемых бэкендов |
 | `input` | string | `{current-dir}` | Базовая директория для поиска файлов | все бэкенды: base path для разрешения относительных путей в файловых группах |
 | `output` | string | `"{current-dir}/{config-name}/{slug}-{version}-{os}-{arch}.{format}"` | Полный путь выходного файла пакета, включая имя | все бэкенды: выходной файл |
 | `temp` | string | `"{config-dir}/{config-name}.temp"` | Рабочая директория для временных файлов (конфиги бэкендов, сгенерированные файлы). Поддерживает `{tmp}` для системной temp-директории. Пересоздаётся при каждом запуске (старое содержимое удаляется). Удаляется после успешного завершения; при ошибке сохраняется для диагностики. | crossler only |
+
+### Форматы пакетов
+
+| Формат | ОС | Описание | Бэкенд |
+|--------|----|----------|--------|
+| `tar.gz` | любая | Архив для ручной установки | встроенный |
+| `deb` | Linux | Debian/Ubuntu пакет | nfpm |
+| `rpm` | Linux | Red Hat/Fedora пакет | nfpm |
+| `apk` | Linux | Alpine пакет | nfpm |
+| `pkg.tar.zst` | Linux | Arch Linux пакет | nfpm |
+| `ipk` | Linux | OpenWrt пакет | nfpm |
+| `rb` | Linux/macOS | Homebrew formula | встроенный |
+| `msi` | Windows | Windows Installer, per-machine (`C:\Program Files\{company}\{name}\`) | wixl/wix |
+| `user.msi` | Windows | Windows Installer, per-user (`C:\Users\{user}\AppData\Local\{company}\{name}\`) | wixl/wix |
+| `pkg` | macOS | macOS installer | pkgbuild/xar+bomutils |
+| `dmg` | macOS | macOS disk image | hdiutil |
 
 ## Файлы
 
@@ -114,32 +130,20 @@ share = true
 
 ### Правило маппинга для группы `share` (Linux/macOS пакеты)
 
-Путь внутри группы `share` анализируется по префиксу:
-
-- Если префикс совпадает с одним из стандартизированных подпутей → файл кладётся в `/usr/share/{подпуть}` напрямую.
-- Иначе (fallback) → файл кладётся в `/usr/share/{slug}/{подпуть}`.
-
-**Стандартизированные префиксы:**
+Файлы группы `share` кладутся в `/usr/share/{slug}/...`. Единственное исключение — префикс `man/`, который маппится напрямую в `/usr/share/man/` (иначе `man` не найдёт страницы).
 
 | Префикс | Целевой путь | Назначение |
 |---------|-------------|------------|
-| `applications/` | `/usr/share/applications/` | `.desktop` файлы (ярлык в меню DE) |
-| `icons/` | `/usr/share/icons/` | иконки приложения (hicolor и др.) |
-| `pixmaps/` | `/usr/share/pixmaps/` | legacy иконки |
 | `man/` | `/usr/share/man/` | man-страницы |
-| `locale/` | `/usr/share/locale/` | переводы (gettext) |
-| `bash-completion/` | `/usr/share/bash-completion/` | bash autocompletion |
-| `zsh/` | `/usr/share/zsh/` | zsh autocompletion |
-| `dbus-1/` | `/usr/share/dbus-1/` | D-Bus сервисы |
+| всё остальное | `/usr/share/{slug}/...` | данные приложения |
 
 **Примеры:**
 
 ```
-share/"applications/myapp.desktop"         → /usr/share/applications/myapp.desktop
-share/"icons/hicolor/48x48/apps/myapp.png" → /usr/share/icons/hicolor/48x48/apps/myapp.png
 share/"man/man1/myapp.1"                   → /usr/share/man/man1/myapp.1
-share/"templates/template.xls"             → /usr/share/myapp/templates/template.xls  (fallback)
-share/"sounds/notify.wav"                  → /usr/share/myapp/sounds/notify.wav        (fallback)
+share/"templates/template.xls"             → /usr/share/myapp/templates/template.xls
+share/"sounds/notify.wav"                  → /usr/share/myapp/sounds/notify.wav
+share/"icons/hicolor/48x48/apps/myapp.png" → /usr/share/myapp/icons/hicolor/48x48/apps/myapp.png
 ```
 
 ## Подписывание
