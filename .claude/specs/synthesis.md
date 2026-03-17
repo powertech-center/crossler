@@ -69,10 +69,29 @@
 | `pkg.tar.zst` | Linux | Arch Linux пакет | nfpm |
 | `ipk` | Linux | OpenWrt пакет | nfpm |
 | `rb` | Linux/macOS | Homebrew formula | встроенный |
-| `msi` | Windows | Windows Installer, per-machine (`C:\Program Files\{company}\{name}\`) | wixl/wix |
-| `user.msi` | Windows | Windows Installer, per-user (`C:\Users\{user}\AppData\Local\{company}\{name}\`) | wixl/wix |
+| `msi` | Windows | Windows Installer, универсальный (per-machine / per-user) | wixl/wix |
 | `pkg` | macOS | macOS installer | pkgbuild/xar+bomutils |
 | `dmg` | macOS | macOS disk image | hdiutil |
+
+### Формат `msi` — поведение per-machine / per-user
+
+MSI генерируется с `ALLUSERS=2` — универсальный пакет, поддерживающий оба режима установки. Crossler генерирует `.wxs` с двумя наборами компонентов (per-machine и per-user), активируемыми по условию `ALLUSERS`.
+
+| Режим | INSTALLDIR | PATH, env | Реестр | UAC |
+|-------|-----------|-----------|--------|-----|
+| Per-machine (`ALLUSERS=1`) | `C:\Program Files\{company}\{name}\` | `HKLM\...\Environment` (`System="yes"`) | `HKLM` | требуется |
+| Per-user (`ALLUSERS=""`) | `%LocalAppData%\{company}\{name}\` | `HKCU\Environment` (`System="no"`) | `HKCU` | не требуется |
+
+**Поведение зависит от бэкенда сборки:**
+
+- **WiX (хост Windows)**: MSI содержит UI-диалог выбора (WixUI_Advanced) — пользователь при установке видит "Install for everyone" / "Install just for me". При выборе per-machine показывается UAC-промпт. Дефолт — per-machine.
+- **wixl (хост Linux/macOS)**: MSI без UI-диалога — режим определяется автоматически по привилегиям (администратор → per-machine, обычный пользователь → per-user). Через командную строку можно явно указать: `msiexec /i app.msi MSIINSTALLPERUSER=1` (per-user) или запустить из elevated shell (per-machine).
+
+> **Примечание для пользователей Crossler**: при сборке на Windows (бэкенд WiX) MSI содержит интерактивный диалог выбора режима установки. При сборке на Linux/macOS (бэкенд wixl) диалог отсутствует — режим определяется привилегиями запускающего или параметром командной строки. Рекомендуется собирать MSI на Windows для лучшего пользовательского опыта. Сборка через wixl полностью функциональна, но без визуального выбора.
+
+**Тихая установка (CI/CD):**
+- Per-machine: `msiexec /quiet /i app.msi` (из elevated shell)
+- Per-user: `msiexec /quiet /i app.msi MSIINSTALLPERUSER=1`
 
 ## Файлы
 
@@ -193,7 +212,7 @@ crossler packages.toml macos.notary.id=$KEY_ID macos.notary.issuer=$ISSUER macos
 - **Linux-пакеты** (deb, rpm, apk, pkg.tar.zst): `bin` маппится в `/usr/bin/` — уже в PATH.
 - **Homebrew** (.rb): Homebrew сам управляет симлинками в `/opt/homebrew/bin/` или `/usr/local/bin/` — уже в PATH.
 - **macOS .pkg**: бинарники ставятся в `/usr/local/bin/` — уже в PATH.
-- **Windows .msi**: директория `INSTALLDIR\bin\` автоматически добавляется в системный PATH (`<Environment Part="last" Permanent="no">`). При деинсталляции запись удаляется.
+- **Windows .msi**: директория `INSTALLDIR\bin\` добавляется в PATH (`<Environment Part="last" Permanent="no">`). Системный или пользовательский PATH — определяется режимом установки (per-machine → `HKLM`, per-user → `HKCU`). При деинсталляции запись удаляется.
 - **DMG**: не актуально (формат доставки GUI-приложений, PATH не затрагивается).
 - **tar.gz**: архив для ручной установки, PATH не управляется.
 
@@ -208,7 +227,7 @@ crossler packages.toml macos.notary.id=$KEY_ID macos.notary.issuer=$ISSUER macos
 **Автоматическая инициализация (переменные подхватываются системой):**
 
 - **Linux-пакеты** (deb, rpm, apk, pkg.tar.zst): генерируется `/etc/profile.d/{slug}.sh` с `export KEY=VALUE`. Файл — часть пакета, удаляется пакетным менеджером при деинсталляции. Подхватывается автоматически при login-сессии (bash).
-- **Windows .msi**: каждая переменная устанавливается через `<Environment Part="all" Permanent="no" System="yes">`. Удаляется при деинсталляции.
+- **Windows .msi**: каждая переменная устанавливается через `<Environment Part="all" Permanent="no">`. Системная (`HKLM`, `System="yes"`) или пользовательская (`HKCU`, `System="no"`) — определяется режимом установки (per-machine / per-user). Удаляется при деинсталляции.
 
 **Без автоматической инициализации (пользователь сам делает source при необходимости):**
 
