@@ -349,6 +349,7 @@ install_wixl_linux() {
     # On Debian/Ubuntu wixl is a separate package; on Alpine/Fedora it's part of msitools
     local wixl_pkg="msitools"
     if [ "$PKG_MGR" = "apt" ]; then
+        if [ "$APT_UPDATED" = "0" ]; then apt-get update -qq; APT_UPDATED=1; fi
         if apt-cache show wixl >/dev/null 2>&1; then
             wixl_pkg="wixl"
         fi
@@ -435,7 +436,11 @@ install_osslsigncode_linux() {
 
 build_osslsigncode_from_source() {
     info "Installing build dependencies for osslsigncode..."
-    pkg_install openssl-dev zlib-dev
+    case "$PKG_MGR" in
+        apk) pkg_install openssl-dev zlib-dev ;;
+        apt) pkg_install libssl-dev zlib1g-dev ;;
+        *)   pkg_install openssl-devel zlib-devel ;;
+    esac
     info "Cloning osslsigncode..."
     git clone --depth=1 https://github.com/mtrojnar/osslsigncode.git "${TMPDIR_WORK}/osslsigncode"
     info "Building osslsigncode (cmake)..."
@@ -518,7 +523,11 @@ build_xar_from_source() {
         fail "Cannot build xar from source: missing tools:$missing — install them before running this script"
     fi
     info "Installing build dependencies for xar..."
-    pkg_install openssl-dev libxml2-dev zlib-dev bzip2-dev
+    case "$PKG_MGR" in
+        apk) pkg_install openssl-dev libxml2-dev zlib-dev bzip2-dev ;;
+        apt) pkg_install libssl-dev libxml2-dev zlib1g-dev libbz2-dev ;;
+        *)   pkg_install openssl-devel libxml2-devel zlib-devel bzip2-devel ;;
+    esac
     info "Cloning xar (mackyle fork)..."
     git clone --depth=1 https://github.com/mackyle/xar.git "${TMPDIR_WORK}/xar"
     info "Building xar..."
