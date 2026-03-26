@@ -38,7 +38,7 @@ linux-x64: $(DIST_DIR)
 	@GOOS=linux GOARCH=amd64 $(GO_BUILD) -o $(DIST_DIR)/crossler-linux-x64 ./cmd/crossler
 
 linux-arm64: $(DIST_DIR)
-	@echo "Building for Linux ARM64..."
+	@echo "Building for Linux arm64..."
 	@GOOS=linux GOARCH=arm64 $(GO_BUILD) -o $(DIST_DIR)/crossler-linux-arm64 ./cmd/crossler
 
 # === macOS ===
@@ -48,7 +48,7 @@ darwin-x64: $(DIST_DIR)
 	@GOOS=darwin GOARCH=amd64 $(GO_BUILD) -o $(DIST_DIR)/crossler-darwin-x64 ./cmd/crossler
 
 darwin-arm64: $(DIST_DIR)
-	@echo "Building for macOS ARM64..."
+	@echo "Building for macOS arm64..."
 	@GOOS=darwin GOARCH=arm64 $(GO_BUILD) -o $(DIST_DIR)/crossler-darwin-arm64 ./cmd/crossler
 
 # === Windows ===
@@ -58,7 +58,7 @@ windows-x64: $(DIST_DIR)
 	@GOOS=windows GOARCH=amd64 $(GO_BUILD) -o $(DIST_DIR)/crossler-windows-x64.exe ./cmd/crossler
 
 windows-arm64: $(DIST_DIR)
-	@echo "Building for Windows ARM64..."
+	@echo "Building for Windows arm64..."
 	@GOOS=windows GOARCH=arm64 $(GO_BUILD) -o $(DIST_DIR)/crossler-windows-arm64.exe ./cmd/crossler
 
 help:
@@ -70,8 +70,8 @@ help:
 	@echo "  clean          - Remove build artifacts"
 	@echo "  test           - Run tests"
 	@echo "  linux-x64      - Build for Linux x64"
-	@echo "  linux-arm64    - Build for Linux ARM64"
+	@echo "  linux-arm64    - Build for Linux arm64"
 	@echo "  darwin-x64     - Build for macOS x64"
-	@echo "  darwin-arm64   - Build for macOS ARM64"
+	@echo "  darwin-arm64   - Build for macOS arm64"
 	@echo "  windows-x64    - Build for Windows x64"
-	@echo "  windows-arm64  - Build for Windows ARM64"
+	@echo "  windows-arm64  - Build for Windows arm64"

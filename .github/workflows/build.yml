@@ -17,7 +17,7 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/powertech-center/alpine-cross-go:latest
+      image: ghcr.io/powertech-center/alpine/cross-go:latest
 
     steps:
     - name: Checkout code
@@ -41,7 +41,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/powertech-center/alpine-cross-go:latest
+      image: ghcr.io/powertech-center/alpine/cross-go:latest
     if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
