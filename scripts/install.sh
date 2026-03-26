@@ -349,6 +349,7 @@ install_wixl_linux() {
     # On Debian/Ubuntu wixl is a separate package; on Alpine/Fedora it's part of msitools
     local wixl_pkg="msitools"
     if [ "$PKG_MGR" = "apt" ]; then
+        if [ "$APT_UPDATED" = "0" ]; then apt-get update -qq; APT_UPDATED=1; fi
         if apt-cache show wixl >/dev/null 2>&1; then
             wixl_pkg="wixl"
         fi
